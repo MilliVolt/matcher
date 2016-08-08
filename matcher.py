@@ -12,7 +12,7 @@ best_candidate = rankings[0]
 offset = candidate_offset(dist, best_candidate)
 
 print('The best candidate is {} with offset {}'.format(best_candidate, offset))
-------------
+-------------
 
 http://stackoverflow.com/a/38798544/1475412
 """
