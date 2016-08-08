@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Match master stream to candidate streams
 
+Good metrics:
+    euclidean without shifting
+    mahalanobis maybe (fails with too many zeroes in candidate)?
+
+
 Example usage
 -------------
 master = master_audio_track()
@@ -22,7 +27,7 @@ import pandas as pd
 from scipy.spatial.distance import cdist
 
 
-def candidate_distance_matrix(master, candidates):
+def candidate_distance_matrix(master, candidates, metric='euclidean'):
     """Compute the distance matrix between the master and candidates."""
     # Get master and candidates into useful objects
     np_master = np.array(master)
@@ -43,7 +48,7 @@ def candidate_distance_matrix(master, candidates):
     sliding_master = np_master[master_window + candidate_window]
 
     # Compute distances between each sliding window and the candidates
-    return cdist(padded_candidates, sliding_master)
+    return cdist(padded_candidates, sliding_master, metric=metric)
 
 
 def sorted_candidates(distance_matrix):
