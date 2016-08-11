@@ -54,8 +54,8 @@ def compatibility(master, candidate, threshold=0.022):
     This function returns a Match object with the following attributes:
         score: The number of coincidental values between the master and the
             candidate.
-        offset: This tells you which part of the candidate array lines up
-            with the master array.
+        offset: The steps to move the candidate array in order to maximize
+            compatibility with the master array.
         delay: The difference between the value of the master array and the
             value of the candidate array at the offset. When "playing" the
             candidate versus the master, this (combined with the offset) tells
