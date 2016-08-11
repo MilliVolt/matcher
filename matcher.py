@@ -1,61 +1,95 @@
 #!/usr/bin/env python3
-"""Match master stream to candidate streams
+"""Match master stream to candidate stream
 
-Good metrics:
-    euclidean without shifting
-    mahalanobis maybe (fails with too many zeroes in candidate)?
-
-
-Example usage
--------------
-master = master_audio_track()
-candidates = list(candidate_audio_tracks())
-
-dist = candidate_distance_matrix(master, candidates)
-rankings = sorted_candidates(dist)
-best_candidate = rankings[0]
-offset = candidate_offset(dist, best_candidate)
-
-print('The best candidate is {} with offset {}'.format(best_candidate, offset))
--------------
-
-http://stackoverflow.com/a/38798544/1475412
+Example usage:
+    master = master_audio_track()
+    candidate = candidate_audio_track()
+    match = compatibility(master, candidate)
+    print('compatibility score: {}'.format(match.score))
+    print('array offset: {}'.format(match.offset))
+    print('track delay: {}'.format(match.delay))
 """
+from collections import namedtuple
 
 import numpy as np
-import pandas as pd
-from scipy.spatial.distance import cdist
 
 
-def candidate_distance_matrix(master, candidates, metric='euclidean'):
-    """Compute the distance matrix between the master and candidates."""
-    # Get master and candidates into useful objects
-    np_master = np.array(master)
-    padded_candidates = pd.DataFrame(candidates).fillna(0)
-
-    # If the master length is too short, tile it
-    candidate_length = padded_candidates.shape[1]
-
-    if np_master.size < candidate_length:
-        tiles = candidate_length // np_master.size + 1
-        np_master = np.tile(np_master, tiles)
-
-    master_length = np_master.size
-
-    # Broadcast to get sliding window matrix
-    master_window = np.arange(master_length - candidate_length + 1)[:, None]
-    candidate_window = np.arange(candidate_length)
-    sliding_master = np_master[master_window + candidate_window]
-
-    # Compute distances between each sliding window and the candidates
-    return cdist(padded_candidates, sliding_master, metric=metric)
+Match = namedtuple('Match', 'score, offset, delay')
 
 
-def sorted_candidates(distance_matrix):
-    """Return the candidate indices sorted by compatibility with the master."""
-    return distance_matrix.min(1).argsort()
+def fuzzy_set_intersection(ar1, ar2, threshold):
+    """Find the fuzzy intersection of two arrays.
+
+    Return the sorted values that have a close match (the absolute difference
+    is less than the given threshold). Compare to set intersection, where the
+    match has to be exact.
+
+    This will give an erroneous result if either array contains values that are
+    within the threshold of each other.
+
+    Based on:
+    github.com/numpy/numpy/blob/v1.11.1/numpy/lib/arraysetops.py#L218-L259
+    """
+    aux = np.concatenate((ar1, ar2))
+    aux.sort()
+    return aux[:-1][np.abs(aux[1:] - aux[:-1]) < threshold]
 
 
-def candidate_offset(distance_matrix, candidate_index):
-    """Return the offset that maximizes candidate compatibility with master."""
-    return distance_matrix[candidate_index].argmin()
+def compatibility(master, candidate, threshold=0.022):
+    """Determine the compatibility of the candidate to the master.
+
+    The master and the candidate should be arrays of monotonically increasing
+    positive values, each with spacing between the values of at least the
+    threshold value.
+
+    In this case compatibility means the number of close matches with respect
+    to the spacing of the values. If master is an array of shot times for a
+    video and candidate is an array of beat times in an audio track,
+    compatibility is high if the two arrays "match up".
+
+    The default threshold comes from the strictest value here:
+    en.wikipedia.org/w/index.php?title=Audio_to_video_synchronization
+    &oldid=728675183#Recommendations
+
+    This function returns a Match object with the following attributes:
+        score: The number of coincidental values between the master and the
+            candidate.
+        offset: This tells you which part of the candidate array lines up
+            with the master array.
+        delay: The difference between the value of the master array and the
+            value of the candidate array at the offset. When "playing" the
+            candidate versus the master, this (combined with the offset) tells
+            you when to start playing.
+    """
+    master = np.array(master)
+    candidate = np.array(candidate)
+    size = master.size
+    best_match = Match(0, 0, 0)
+
+    # "Slide" the candidate array across the master array
+    for offset in range(-size + 1, len(candidate)):
+        # The sample is a "window" into the candidate the same size as the
+        # master that slides from left to right
+        sample = candidate[max(offset, 0) : size + offset]
+
+        # The offset into the master array goes from right to left, stopping
+        # at the first element of the master
+        master_offset = -(size + min(offset, 0))
+
+        # Since we are interested in the spacing between values, we add a delay
+        # to the sample so that its first value matches the master exactly
+        delay = master[master_offset] - sample[0]
+        delayed_sample = sample + delay
+
+        # The compatibility score is the number of close matches between the
+        # sample and the section of the master array it covers
+        score = len(fuzzy_set_intersection(master, delayed_sample, threshold))
+
+        # We want the earliest part of the master array that maximizes
+        # compatibility, so any score greater than or equal to the highest
+        # score we've seen becomes the highest score
+        match = Match(score, offset, delay)
+        if match.score >= best_match.score:
+            best_match = match
+
+    return best_match
