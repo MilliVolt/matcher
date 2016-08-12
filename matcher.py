@@ -17,12 +17,12 @@ import numpy as np
 Match = namedtuple('Match', 'score, offset, delay')
 
 
-def fuzzy_set_intersection(ar1, ar2, threshold):
-    """Find the fuzzy intersection of two arrays.
+def count_fuzzy_set_intersection(ar1, ar2, threshold):
+    """Find the size of the fuzzy intersection of two arrays.
 
-    Return the sorted values that have a close match (the absolute difference
-    is less than the given threshold). Compare to set intersection, where the
-    match has to be exact.
+    Return the number of values that have a close match (the absolute
+    difference is less than the given threshold). Compare to set intersection,
+    where the match has to be exact.
 
     This will give an erroneous result if either array contains values that are
     within the threshold of each other.
@@ -32,7 +32,7 @@ def fuzzy_set_intersection(ar1, ar2, threshold):
     """
     aux = np.concatenate((ar1, ar2))
     aux.sort()
-    return aux[:-1][np.abs(aux[1:] - aux[:-1]) < threshold]
+    return np.sum(np.abs(aux[1:] - aux[:-1]) < threshold)
 
 
 def compatibility(master, candidate, threshold=0.022):
@@ -83,7 +83,7 @@ def compatibility(master, candidate, threshold=0.022):
 
         # The compatibility score is the number of close matches between the
         # sample and the section of the master array it covers
-        score = len(fuzzy_set_intersection(master, delayed_sample, threshold))
+        score = count_fuzzy_set_intersection(master, delayed_sample, threshold)
 
         # We want the earliest part of the master array that maximizes
         # compatibility, so any score greater than or equal to the highest
