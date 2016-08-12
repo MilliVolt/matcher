@@ -32,7 +32,7 @@ def count_fuzzy_set_intersection(ar1, ar2, threshold):
     """
     aux = np.concatenate((ar1, ar2))
     aux.sort()
-    return np.sum(np.abs(aux[1:] - aux[:-1]) < threshold)
+    return np.count_nonzero(np.abs(aux[1:] - aux[:-1]) < threshold)
 
 
 def compatibility(master, candidate, threshold=0.022):
