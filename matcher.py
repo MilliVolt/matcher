@@ -9,6 +9,7 @@ Example usage:
     print('array offset: {}'.format(match.offset))
     print('track delay: {}'.format(match.delay))
 """
+import argparse
 from collections import namedtuple
 
 import numpy as np
@@ -93,3 +94,20 @@ def compatibility(master, candidate, threshold=0.022):
             best_match = match
 
     return best_match
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('track1', type=argparse.FileType())
+    parser.add_argument('track2', type=argparse.FileType())
+    args = parser.parse_args()
+    with args.track1 as track1:
+        track_1 = list(map(float, track1.readlines()))
+    with args.track2 as track2:
+        track_2 = list(map(float, track2.readlines()))
+    match = compatibility(track_1, track_2)
+    print('{m.score},{m.offset},{m.delay}'.format(m=match))
+
+
+if __name__ == '__main__':
+    main()
