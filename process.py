@@ -17,9 +17,9 @@ def get_file_list(d):
 music_list = get_file_list(MUSIC_DIR)
 video_list = get_file_list(VIDEO_DIR)
 
-for m in music_list:
+for v in video_list:
     best_match = {'score':0}
-    for v in video_list:
+    for m in music_list:
         with open(m) as music, open(v) as video:
             vl = list(map(float, video.readlines()))
             ml = list(map(float, music.readlines()))
