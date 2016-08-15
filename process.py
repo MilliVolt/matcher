@@ -8,7 +8,7 @@ VIDEO_DIR = '../video'
 def get_file_list(d):
     file_list = []
     # getting all the files in d
-    for root, dirs, files in d:
+    for root, dirs, files in os.walk(d):
         for f in files:
             if re.search(r'\.txt$', f):
                 file_list.extend(os.path.join(root, f));
