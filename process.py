@@ -11,7 +11,7 @@ def get_file_list(d):
     for root, dirs, files in os.walk(d):
         for f in files:
             if re.search(r'\.txt$', f):
-                file_list.extend(os.path.join(root, f));
+                file_list.append(os.path.join(root, f));
     return file_list
 
 music_list = get_file_list(MUSIC_DIR)
