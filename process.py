@@ -21,16 +21,16 @@ for m in music_list:
     best_match = {'score':0}
     for v in video_list:
         with open(m) as music, open(v) as video:
-            score = matcher.compatibility(
-                        list(map(float, video.readlines())),
-                        list(map(float, music.readlines()))
-                    )
-        if (score.score > best_match['score']):
-            best_match = {'video' : v,
-                          'music' : m,
-                          'score' : score.score,
-                          'offset': score.offset,
-                          'delay' : score.delay}
+            vl = list(map(float, video.readlines()))
+            ml = list(map(float, music.readlines()))
+        if vl and ml:
+            score = matcher.compatibility(vl, ml)
+            if (score.score > best_match['score']):
+                best_match = {'video' : v,
+                              'music' : m,
+                              'score' : score.score,
+                              'offset': score.offset,
+                              'delay' : score.delay}
     print(best_match)
 
         
