@@ -26,11 +26,14 @@ for v in video_list:
         if vl and ml:
             score = matcher.compatibility(vl, ml)
             if (score.score > best_match['score']):
-                best_match = {'video' : v,
-                              'music' : m,
-                              'score' : score.score,
-                              'offset': score.offset,
-                              'delay' : score.delay}
+                best_match = {
+                    'video' : v,
+                    'music' : m,
+                    'score' : score.score,
+                    'master_seek': score.master_seek,
+                    'candidate_seek': score.candidate_seek,
+                }
+
     print(best_match)
 
         
