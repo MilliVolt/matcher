@@ -5,9 +5,15 @@ Example usage:
     master = master_audio_track()
     candidate = candidate_audio_track()
     match = compatibility(master, candidate)
+    print('scaled compatibility score: {}'.format(match.scaled_score))
     print('compatibility score: {}'.format(match.score))
     print('array offset: {}'.format(match.offset))
     print('track delay: {}'.format(match.delay))
+    if match.delay:
+        target = 'master' if match.delay > 0 else 'candidate'
+        print('Seek to {} in {}'.format(abs(match.delay), target))
+    else:
+        print('Play both tracks at the same time.')
 """
 import argparse
 from collections import namedtuple
