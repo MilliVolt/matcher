@@ -9,11 +9,8 @@ Example usage:
     print('compatibility score: {}'.format(match.score))
     print('array offset: {}'.format(match.offset))
     print('track delay: {}'.format(match.delay))
-    if match.delay:
-        target = 'master' if match.delay > 0 else 'candidate'
-        print('Seek to {} in {}'.format(abs(match.delay), target))
-    else:
-        print('Play both tracks at the same time.')
+    print('master delay: {}'.format(match.master_seek))
+    print('candidate delay: {}'.format(match.candidate_seek))
 """
 import argparse
 from collections import namedtuple
@@ -21,7 +18,10 @@ from collections import namedtuple
 import numpy as np
 
 
-Match = namedtuple('Match', 'scaled_score, score, offset, delay')
+Match = namedtuple(
+    'Match',
+    'scaled_score, score, offset, delay, master_seek, candidate_seek'
+)
 
 
 def count_fuzzy_set_intersection(ar1, ar2, threshold):
@@ -40,6 +40,40 @@ def count_fuzzy_set_intersection(ar1, ar2, threshold):
     aux = np.concatenate((ar1, ar2))
     aux.sort()
     return np.count_nonzero(np.abs(aux[1:] - aux[:-1]) < threshold)
+
+
+def get_seek_values(master, master_offset, delay):
+    """Get the seek values for the master and candidate.
+
+    This attempts to seek to the value immediately before the master_offset
+    (which represents the first "matching" value between the master and
+    candidate) for the master seek, then apply the delay to get the candidate
+    seek, so that "playing" the two tracks with the given seek values has the
+    tracks sync up.
+
+    For example, if these represent times in seconds:
+
+    [1 3 7 8 9]  # master
+    [    5 6 7]  # candidate
+
+    would give a master seek of 3 and a candidate seek of 1, so that the first
+    "match" occurs in each track at 4 seconds.
+
+    However, in this scenario:
+
+    [1 3 7 8 9]  # master
+    [    2 3 4]  # candidate
+
+    the master seek should be 3 and the candidate seek should be -2. We can't
+    have a negative seek, so we add 2 to both to get 5 and 0, respectively.
+    This means that the master seek is just the delay.
+    """
+    master_seek = master[master_offset - 1] if master_offset else 0
+    candidate_seek = master_seek - delay
+    if candidate_seek < 0:
+        master_seek = delay
+        candidate_seek = 0
+    return master_seek, candidate_seek
 
 
 def compatibility(master, candidate, threshold=None):
@@ -76,7 +110,7 @@ def compatibility(master, candidate, threshold=None):
     master = np.array(master)
     candidate = np.array(candidate)
     size = master.size
-    best_match = Match(0, 0, 0, 0)
+    best_match = Match(0, 0, 0, 0, 0, 0)
 
     # "Slide" the candidate array across the master array
     for offset in range(-size + 1, len(candidate)):
@@ -97,10 +131,17 @@ def compatibility(master, candidate, threshold=None):
         # sample and the section of the master array it covers
         score = count_fuzzy_set_intersection(master, delayed_sample, threshold)
 
+        # Scale it by the size of the master array
+        scaled = score / size
+
+        # Determine the seek values for the master and candidate. The
+        # difference between these values is the delay between the tracks.
+        mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
+
         # We want the earliest part of the master array that maximizes
         # compatibility, so any score greater than or equal to the highest
         # score we've seen becomes the highest score
-        match = Match(score / size, score, offset, delay)
+        match = Match(scaled, score, offset, delay, mast_seek, cand_seek)
         if match.score >= best_match.score:
             best_match = match
 
@@ -119,7 +160,7 @@ def main():
     parser.add_argument('track2')
     args = parser.parse_args()
     match = compatibility_from_files(args.track1, args.track2)
-    print('{m.scaled_score},{m.score},{m.offset},{m.delay}'.format(m=match))
+    print(match._asdict())
 
 
 if __name__ == '__main__':
