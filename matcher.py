@@ -36,7 +36,7 @@ def count_fuzzy_set_intersection(ar1, ar2, threshold):
     return np.count_nonzero(np.abs(aux[1:] - aux[:-1]) < threshold)
 
 
-def compatibility(master, candidate, threshold=0.022):
+def compatibility(master, candidate, threshold=None):
     """Determine the compatibility of the candidate to the master.
 
     The master and the candidate should be arrays of monotonically increasing
@@ -53,6 +53,7 @@ def compatibility(master, candidate, threshold=0.022):
     &oldid=728675183#Recommendations
 
     This function returns a Match object with the following attributes:
+        scaled_score: The score divided by the length of the master.
         score: The number of coincidental values between the master and the
             candidate.
         offset: The steps to move the candidate array in order to maximize
@@ -64,6 +65,8 @@ def compatibility(master, candidate, threshold=0.022):
             If this value is positive, seek by the value of delay into the
             master track.
     """
+    if threshold is None:
+        threshold = 0.022
     master = np.array(master)
     candidate = np.array(candidate)
     size = master.size
@@ -98,16 +101,18 @@ def compatibility(master, candidate, threshold=0.022):
     return best_match
 
 
+def compatibility_from_files(file_name_1, file_name_2, threshold=None):
+    """Return the compatibility for the values in the two given files."""
+    fn1, fn2 = file_name_1, file_name_2
+    return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
+
+
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('track1', type=argparse.FileType())
-    parser.add_argument('track2', type=argparse.FileType())
+    parser.add_argument('track1')
+    parser.add_argument('track2')
     args = parser.parse_args()
-    with args.track1 as track1:
-        track_1 = list(map(float, track1.readlines()))
-    with args.track2 as track2:
-        track_2 = list(map(float, track2.readlines()))
-    match = compatibility(track_1, track_2)
+    match = compatibility_from_files(args.track1, args.track2)
     print('{m.scaled_score},{m.score},{m.offset},{m.delay}'.format(m=match))
 
 
