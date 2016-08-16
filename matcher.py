@@ -56,11 +56,13 @@ def compatibility(master, candidate, threshold=0.022):
         score: The number of coincidental values between the master and the
             candidate.
         offset: The steps to move the candidate array in order to maximize
-            compatibility with the master array.
+            compatibility with the master array. Not needed for syncing.
         delay: The difference between the value of the master array and the
-            value of the candidate array at the offset. When "playing" the
-            candidate versus the master, this (combined with the offset) tells
-            you when to start playing.
+            value of the candidate array at the offset. If this value is
+            negative, seek by the value of -delay into the candidate track. If
+            this value is 0, play both tracks at the same time with no seeking.
+            If this value is positive, seek by the value of delay into the
+            master track.
     """
     master = np.array(master)
     candidate = np.array(candidate)
