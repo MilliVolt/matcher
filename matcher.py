@@ -75,7 +75,7 @@ def compatibility(master, candidate, threshold=0.022):
 
         # The offset into the master array goes from right to left, stopping
         # at the first element of the master
-        master_offset = -(size + min(offset, 0))
+        master_offset = -min(offset, 0)
 
         # Since we are interested in the spacing between values, we add a delay
         # to the sample so that its first value matches the master exactly
