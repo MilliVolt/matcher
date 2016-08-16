@@ -15,7 +15,7 @@ from collections import namedtuple
 import numpy as np
 
 
-Match = namedtuple('Match', 'score, offset, delay')
+Match = namedtuple('Match', 'scaled_score, score, offset, delay')
 
 
 def count_fuzzy_set_intersection(ar1, ar2, threshold):
@@ -65,7 +65,7 @@ def compatibility(master, candidate, threshold=0.022):
     master = np.array(master)
     candidate = np.array(candidate)
     size = master.size
-    best_match = Match(0, 0, 0)
+    best_match = Match(0, 0, 0, 0)
 
     # "Slide" the candidate array across the master array
     for offset in range(-size + 1, len(candidate)):
@@ -89,7 +89,7 @@ def compatibility(master, candidate, threshold=0.022):
         # We want the earliest part of the master array that maximizes
         # compatibility, so any score greater than or equal to the highest
         # score we've seen becomes the highest score
-        match = Match(score, offset, delay)
+        match = Match(score / size, score, offset, delay)
         if match.score >= best_match.score:
             best_match = match
 
@@ -106,7 +106,7 @@ def main():
     with args.track2 as track2:
         track_2 = list(map(float, track2.readlines()))
     match = compatibility(track_1, track_2)
-    print('{m.score},{m.offset},{m.delay}'.format(m=match))
+    print('{m.scaled_score},{m.score},{m.offset},{m.delay}'.format(m=match))
 
 
 if __name__ == '__main__':
