@@ -65,14 +65,14 @@ def get_seek_values(master, master_offset, delay):
     [    2 3 4]  # candidate
 
     the master seek should be 3 and the candidate seek should be -2. We can't
-    have a negative seek, so we add 2 to both to get 5 and 0, respectively.
-    This means that the master seek is just the delay.
+    have a negative seek, so we just use the first "sync" location: the master
+    seek is 7 and the candidate seek is 2.
     """
     master_seek = master[master_offset - 1] if master_offset else 0
     candidate_seek = master_seek - delay
     if candidate_seek < 0:
-        master_seek = delay
-        candidate_seek = 0
+        master_seek = master[master_offset]
+        candidate_seek = master_seek - delay
     return master_seek, candidate_seek
 
 
