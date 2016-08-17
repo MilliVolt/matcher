@@ -1,0 +1,7 @@
+import youtube_dl
+
+
+def get_urls(video_id):
+    with youtube_dl.YoutubeDL() as ydl:
+        info = ydl.extract_info(video_id, download=False)
+    return [vid['url'] for vid in info['requested_formats']]
