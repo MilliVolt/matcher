@@ -1,18 +1,19 @@
 #!/usr/bin/env python3
 """TFT gui."""
+import pafy
+
 import tornado.ioloop
 import tornado.web
-
-from youtube_dl import YoutubeDL
 
 
 class MainHandler(tornado.web.RequestHandler):
     def get(self):
-        video_id = self.get_argument('v')
-        with YoutubeDL() as ydl:
-            info = ydl.extract_info(video_id, download=False)
-        vid_url, aud_url = (url['url'] for url in info['requested_formats'])
-        self.render('watch.html', video_url=vid_url, audio_url=aud_url)
+        tracks = pafy.new(self.get_argument('v'))
+        self.render(
+            'watch.html',
+            video_url=tracks.getbestvideo().url,
+            audio_url=tracks.getbestaudio().url,
+        )
 
 
 if __name__ == '__main__':
