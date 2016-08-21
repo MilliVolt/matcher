@@ -41,6 +41,15 @@ class Track(Base):
     )
     url_id = sa.Column(pg.TEXT, nullable=False)
     track_type = sa.Column(track_type_enum, nullable=False)
+    track_metadata = sa.Column(
+        pg.json.JSONB,
+        sa.CheckConstraint(
+            "track_metadata @> '{}'",
+            name='track_metadata_valid_json_check',
+        ),
+        nullable=False,
+        server_default='{}',
+    )
 
     __table_args__ = (
         sa.UniqueConstraint('url_id', 'track_type'),
