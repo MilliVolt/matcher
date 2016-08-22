@@ -24,37 +24,33 @@ sa.event.listen(
 
 def create_engine():
     connection_string = 'postgresql+psycopg2://{}:{}@{}:{}/{}'.format(
-        user, password, host, port, database
-    )
+        user, password, host, port, database)
     return sa.create_engine(connection_string)
 
 
-track_type_enum = sa.Enum(
-    'video', 'audio', name='av_enum', inherit_schema=True
-)
-
-
-class Track(Base):
-    __tablename__ = 'track'
+class Video(Base):
+    __tablename__ = 'video'
     id = sa.Column(
-        pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
-    )
-    url_id = sa.Column(pg.TEXT, nullable=False)
-    track_type = sa.Column(track_type_enum, nullable=False)
-    track_metadata = sa.Column(
+        pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
+    url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
+    duration = sa.Column(pg.NUMERIC, nullable=False)
+    video_metadata = sa.Column(
         pg.json.JSONB,
         sa.CheckConstraint(
-            "track_metadata @> '{}'",
-            name='track_metadata_valid_json_check',
+            "video_metadata @> '{}'",
+            name='video_metadata_valid_json_check',
         ),
         nullable=False,
         server_default='{}',
     )
 
     __table_args__ = (
-        sa.UniqueConstraint('url_id', 'track_type'),
-        sa.UniqueConstraint('id', 'track_type'),
+        sa.UniqueConstraint('id', 'duration'),
     )
+
+
+match_type_enum = sa.Enum(
+    'video', 'audio', name='av_enum', inherit_schema=True)
 
 
 class TrackMatch(Base):
@@ -63,9 +59,10 @@ class TrackMatch(Base):
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
     )
     track_id = sa.Column(pg.UUID, nullable=False)
-    track_type = sa.Column(track_type_enum, nullable=False)
+    track_duration = sa.Column(pg.NUMERIC, nullable=False)
     match_id = sa.Column(pg.UUID, nullable=False)
-    match_type = sa.Column(track_type_enum, nullable=False)
+    match_duration = sa.Column(pg.NUMERIC, nullable=False)
+    match_type = sa.Column(match_type_enum, nullable=False)
     score = sa.Column(
         sa.Integer,
         sa.CheckConstraint('score > 0'),
@@ -73,34 +70,35 @@ class TrackMatch(Base):
     )
     scaled_score = sa.Column(
         pg.NUMERIC,
-        sa.CheckConstraint('scaled_score > 0'),
+        sa.CheckConstraint('(scaled_score > 0) AND (scaled_score <= 1)'),
         nullable=False,
     )
     track_seek = sa.Column(
         pg.NUMERIC,
-        sa.CheckConstraint('track_seek >= 0'),
+        sa.CheckConstraint(
+            '(track_seek >= 0) AND (track_seek < track_duration)'),
         nullable=False,
     )
     match_seek = sa.Column(
         pg.NUMERIC,
-        sa.CheckConstraint('match_seek >= 0'),
+        sa.CheckConstraint(
+            '(match_seek >= 0) AND (match_seek < match_duration)'),
         nullable=False,
     )
 
     __table_args__ = (
         sa.ForeignKeyConstraint(
-            ['track_id', 'track_type'],
-            ['track.id', 'track.track_type'],
+            ('track_id', 'track_duration'),
+            ('video.id', 'video.duration'),
             onupdate='CASCADE',
-            ondelete='CASCADE'
+            ondelete='CASCADE',
         ),
         sa.ForeignKeyConstraint(
-            ['match_id', 'match_type'],
-            ['track.id', 'track.track_type'],
+            ('match_id', 'match_duration'),
+            ('video.id', 'video.duration'),
             onupdate='CASCADE',
-            ondelete='CASCADE'
+            ondelete='CASCADE',
         ),
         sa.CheckConstraint('track_id != match_id'),
-        sa.CheckConstraint('track_type != match_type'),
-        sa.UniqueConstraint('track_id', 'match_id'),
+        sa.UniqueConstraint('track_id', 'match_id', 'match_type'),
     )
