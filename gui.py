@@ -37,4 +37,5 @@ class Application(tornado.web.Application):
 
 if __name__ == '__main__':
     Application().listen(8888)
+    print('Listening on port 8888')
     tornado.ioloop.IOLoop.current().start()

@@ -49,10 +49,6 @@ class Video(Base):
     )
 
 
-match_type_enum = sa.Enum(
-    'video', 'audio', name='av_enum', inherit_schema=True)
-
-
 class TrackMatch(Base):
     __tablename__ = 'track_match'
     track_match_id = sa.Column(
@@ -62,7 +58,8 @@ class TrackMatch(Base):
     track_duration = sa.Column(pg.NUMERIC, nullable=False)
     match_id = sa.Column(pg.UUID, nullable=False)
     match_duration = sa.Column(pg.NUMERIC, nullable=False)
-    match_type = sa.Column(match_type_enum, nullable=False)
+    match_type = sa.Column(
+        pg.ENUM('video', 'audio', name='av_enum'), nullable=False)
     score = sa.Column(
         sa.Integer,
         sa.CheckConstraint('score > 0'),
