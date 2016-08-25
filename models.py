@@ -1,7 +1,48 @@
-"""Postgres"""
+"""Postgres
+
+To add tracks:
+    with session.begin():
+        session.add(Video(url_id=<url_id>, duration=<duration>)
+
+To add matches:
+    track_query = session.query(Video).filter_by(url_id=<url_id_0>)
+    match_1_query = session.query(Video).filter_by(url_id=<url_id_1>)
+    match_2_query = session.query(Video).filter_by(url_id=<url_id_2>)
+    with session.begin():
+        session.add(TrackMatch(
+            track=track_query.one(), match=match_1_query.one(),
+            master_type=<'video' or 'audio'>,
+            score=<score>, scaled_score=<scaled_score>,
+            track_seek=<track_seek>, match_seek=<match_seek>,
+        ))
+        session.add(TrackMatch(
+            track=track_query.one(), match=match_2_query.one(),
+            master_type=<'video' or 'audio'>,
+            score=<score>, scaled_score=<scaled_score>,
+            track_seek=<track_seek>, match_seek=<match_seek>,
+        ))
+
+    # Now we can query. Let's say the master_type was 'video' and the
+    # scaled_scores were 0.8 and 0.9
+    track = track_query.one()
+    best, *rest = track.video_master_matches
+    assert best.match == match_2_query.one()
+    assert match_1_query.one().audio_candidate_matches[0].track == track
+
+To get the top n matches for a track:
+    def get_top_n(url_id, n, master_type):
+        video = session.query(Video).filter_by(url_id=url_id).one_or_none()
+        if not video:
+            return None
+        if master_type == 'video':
+            return video.video_master_maches.limit(n)
+        else:
+            return video.audio_master_matches.limit(n)
+"""
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from settings import user, password, host, port, database
@@ -28,6 +69,20 @@ def create_engine():
     return sa.create_engine(connection_string)
 
 
+def _match_relationship(track_or_match, video_or_audio):
+    return relationship(
+        'TrackMatch',
+        primaryjoin=(
+            "and_(Video.id==TrackMatch.{}_id,"
+            " TrackMatch.master_type=='{}')".format(
+                track_or_match, video_or_audio
+            )
+        ),
+        order_by='desc(TrackMatch.scaled_score)',
+        lazy='dynamic',
+    )
+
+
 class Video(Base):
     __tablename__ = 'video'
     id = sa.Column(
@@ -44,13 +99,14 @@ class Video(Base):
         server_default='{}',
     )
 
+    video_master_matches = _match_relationship('track', 'video')
+    audio_master_matches = _match_relationship('track', 'audio')
+    video_candidate_matches = _match_relationship('match', 'audio')
+    audio_candidate_matches = _match_relationship('match', 'video')
+
     __table_args__ = (
         sa.UniqueConstraint('id', 'duration'),
     )
-
-
-match_type_enum = sa.Enum(
-    'video', 'audio', name='av_enum', inherit_schema=True)
 
 
 class TrackMatch(Base):
@@ -58,11 +114,18 @@ class TrackMatch(Base):
     track_match_id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
     )
+
     track_id = sa.Column(pg.UUID, nullable=False)
     track_duration = sa.Column(pg.NUMERIC, nullable=False)
+    track = relationship('Video', foreign_keys=(track_id, track_duration))
+
     match_id = sa.Column(pg.UUID, nullable=False)
     match_duration = sa.Column(pg.NUMERIC, nullable=False)
-    match_type = sa.Column(match_type_enum, nullable=False)
+    match = relationship('Video', foreign_keys=(match_id, match_duration))
+
+    master_type = sa.Column(
+        pg.ENUM('video', 'audio', name='master_enum'), nullable=False)
+
     score = sa.Column(
         sa.Integer,
         sa.CheckConstraint('score > 0'),
@@ -100,5 +163,5 @@ class TrackMatch(Base):
             ondelete='CASCADE',
         ),
         sa.CheckConstraint('track_id != match_id'),
-        sa.UniqueConstraint('track_id', 'match_id', 'match_type'),
+        sa.UniqueConstraint('track_id', 'match_id', 'master_type'),
     )
