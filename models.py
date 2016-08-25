@@ -83,12 +83,37 @@ def _match_relationship(track_or_match, video_or_audio):
     )
 
 
+def _time_track(name):
+    return sa.Column(
+        pg.ARRAY(pg.NUMERIC),
+        sa.CheckConstraint(
+            'COALESCE(ARRAY_LENGTH({}, 1), 0) > 0'.format(name)
+        ),
+        sa.CheckConstraint(
+            '0 < ALL({})'.format(name)
+        ),
+        sa.CheckConstraint(
+            'duration > ALL({})'.format(name)
+        ),
+        # These don't work...
+        #sa.CheckConstraint(
+        #    '{name} = sort({name})'.format(name=name)
+        #),
+        #sa.CheckConstraint(
+        #    '{name} = uniq({name})'.format(name=name)
+        #),
+        nullable=False,
+    )
+
+
 class Video(Base):
     __tablename__ = 'video'
     id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
     url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
     duration = sa.Column(pg.NUMERIC, nullable=False)
+    video_shot_times = _time_track('video_shot_times')
+    audio_beat_times = _time_track('audio_beat_times')
     video_metadata = sa.Column(
         pg.json.JSONB,
         sa.CheckConstraint(
