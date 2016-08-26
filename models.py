@@ -2,7 +2,11 @@
 
 To add tracks:
     with session.begin():
-        session.add(Video(url_id=<url_id>, duration=<duration>)
+        session.add(Video(
+            url_id=<url_id>, duration=<duration>,
+            video_shot_times=[...],
+            audio_beat_times=[...],
+        ))
 
 To add matches:
     track_query = session.query(Video).filter_by(url_id=<url_id_0>)
