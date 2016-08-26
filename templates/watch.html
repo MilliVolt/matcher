@@ -1,163 +1,36 @@
 <!DOCTYPE html>
 <html>
-  <head></head>
+  <head>
+    <script src="/static/popcorn.js"></script>
+    <script src="/static/popcorn.compatible.js"></script>
+    <script src="/static/popcorn-base.js"></script>
+    <script src="/static/popcorn.inception.js"></script>
+  </head>
   <body>
     <div id="video-container">
-      <video preload="auto" autobuffer="true" id="one" width="480" controls>
-	<source src="{{ video_url }}">
+      <video preload="auto" autobuffer="true" width="480" controls>
+        <source src="{% raw video_url %}">
       </video>
-      <audio preload="auto" autobuffer="true" id="two" controls>
-	<source src="{{ audio_url }}">
-      </audio>
     </div>
-    <script type="text/javascript">
-      // Adapted from http://chirls.com/2011/01/13/what-im-working-on-synchronized-videos-in-html5-featuring-ok-go/
-      var tracks = [
-        document.getElementById('one'),
-        document.getElementById('two')
-      ];
-
-      var playing = false;
-      var seeking_index = -1;
-      var seeked_counter = 0;
-      var time_controlling_index = 0;
-
-      function seeking(evt) {
-        if (seeking_index < 0) {
-          pause();
-          for (var i = 0; i < tracks.length; i++) {
-            if (tracks[i].id === evt.target.id) {
-              seeking_index = i;
-              break;
-            };
+    <script>
+      (function () {
+        var video_seek = parseFloat('{% raw video_seek %}');
+        var audio_seek = parseFloat('{% raw audio_seek %}');
+        var video = Popcorn('video', {frameAnimation: true});
+        video.on('timeupdate', function () {
+          if (video.currentTime() < video_seek) {
+            video.currentTime(video_seek);
           };
-        };
-      };
-
-      function seeked(evt) {
-        if (seeking_index < 0) {
-          return;
-        } else if (tracks[seeking_index].id !== evt.target.id) {
-          seeked_counter--;
-        };
-
-        if (!seeked_counter) {
-          var target_time = tracks[seeking_index].currentTime;
-          for (var i = 0; i < tracks.length; i++) {
-            if (
-              tracks[i].id != evt.target.id &&
-              seeking_index != i &&
-              tracks[i].currentTime != target_time
-            ) {
-              seeked_counter++;
-              tracks[i].currentTime = target_time;
-            };
-          };
-
-          time_controlling_index = seeking_index;
-
-          if (!seeked_counter) {
-            seeking_index = -1;
-            if (playing) {
-              play();
-            };
-          };
-        };
-      };
-
-      function play(evt) {
-        playing = true;
-        for (var i = 0; i < tracks.length; i++) {
-          if (tracks[i].paused && tracks[i] != evt.target) {
-            if (Math.abs(tracks[i].currentTime - evt.target.currentTime) > 2) {
-              if (evt.target.currentTime <= tracks[i].duration) {
-                tracks[i].currentTime = evt.target.currentTime;
-              } else {
-                tracks[i].currentTime = tracks[i].duration;
-              };
-            };
-            tracks[i].play();
-          };
-        };
-      };
-
-      function pause(evt) {
-        if (seeking_index < 0) {
-          playing = false;
-          for (var i = 0; i < tracks.length; i++) {
-            if (!tracks[i].paused && (!evt || tracks[i] != evt.target)) {
-              tracks[i].pause();
-            };
-          };
-        };
-      };
-
-      var last_time_update = 0;
-
-      function checkTime() {
-        var now = Date.now();
-        if (now - last_time_update < 4000) {
-          return;
-        };
-        var target_time = tracks[time_controlling_index].currentTime;
-        for (var i = 0; i < tracks.length; i++) {
-          if (!tracks[i].paused) {
-            var diff = Math.abs(tracks[i].currentTime - target_time);
-            if (diff > 0.3) {
-              seeked_counter++;
-              tracks[i].currentTime = target_time;
-              last_time_update = Date.now();
-            };
-          };
-        };
-      };
-
-      function dataunavailable(evt) {
-        pause();
-      };
-
-      function ended(evt) {
-        if (tracks[time_controlling_index] === evt.target) {
-          for (var i = 0; i < tracks.length; i++) {
-            if (tracks[i] !== evt.target && tracks[i].duration > evt.target.duration) {
-              time_controlling_index = i;
-              return;
-            };
-          };
-        };
-      };
-
-      var checkTime_id = 0;
-
-      // Not sure if this is necessary...
-      function setUpVideos(evt) {
-        for (var j = 0; j < tracks.length; j++) {
-          if (tracks[j].networkState < 2 && evt.target !== tracks[j] && !tracks[j].videoHeight) {
-            return;
-          };
-        };
-
-        for (var j = 0; j < tracks.length; j++) {
-          tracks[j].removeEventListener('loadedmetadata', setUpVideos, false);
-        };
-
-        if (!checkTime_id) {
-          checkTime_id = setInterval(checkTime, 1000);
-        };
-      };
-
-      document.addEventListener('load', setUpVideos, false);
-
-      for (var i = 0; i < tracks.length; i++) {
-        tracks[i].load();
-        tracks[i].addEventListener('play', play, false);
-        tracks[i].addEventListener('pause', pause, false);
-        tracks[i].addEventListener('seeking', seeking, true);
-        tracks[i].addEventListener('seeked', seeked, true);
-        tracks[i].addEventListener('dataunavailable', dataunavailable, true);
-        tracks[i].addEventListener('waiting', dataunavailable, true);
-        tracks[i].addEventListener('loadedmetadata', setUpVideos, false);
-      };
+        });
+        video.defaults('inception', {target: 'video-container'});
+        video.inception({
+          source: '{% raw audio_url %}',
+          controls: true,
+          sync: true,
+          start: video_seek,
+          from: audio_seek
+        });
+      }());
     </script>
   </body>
 </html>

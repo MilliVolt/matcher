@@ -16,13 +16,16 @@ class MainHandler(tornado.web.RequestHandler):
         self.render(
             'watch.html',
             video_url=tracks.getbestvideo().url,
+            video_seek=self.get_argument('vseek', 0),
             audio_url=tracks.getbestaudio().url,
+            audio_seek=self.get_argument('aseek', 0),
         )
 
 
 class Application(tornado.web.Application):
     def __init__(self):
         settings = {
+            'static_path': 'static',
             'template_path': 'templates',
         }
         urls = [
