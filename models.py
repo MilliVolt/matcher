@@ -42,7 +42,7 @@ To get the top n matches for a track:
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 from sqlalchemy.sql import func
 
 from settings import user, password, host, port, database
@@ -95,13 +95,6 @@ def _time_track(name):
         sa.CheckConstraint(
             'duration > ALL({})'.format(name)
         ),
-        # These don't work...
-        #sa.CheckConstraint(
-        #    '{name} = sort({name})'.format(name=name)
-        #),
-        #sa.CheckConstraint(
-        #    '{name} = uniq({name})'.format(name=name)
-        #),
         nullable=False,
     )
 
@@ -112,8 +105,22 @@ class Video(Base):
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
     url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
     duration = sa.Column(pg.NUMERIC, nullable=False)
+
     video_shot_times = _time_track('video_shot_times')
     audio_beat_times = _time_track('audio_beat_times')
+
+    @validates('video_shot_times')
+    def validate_video_shot_times(self, key, vst):
+        if vst != sorted(set(vst)):
+            raise ValueError('Times must be sorted and unique.')
+        return vst
+
+    @validates('audio_beat_times')
+    def validate_audio_beat_times(self, key, abt):
+        if abt != sorted(set(abt)):
+            raise ValueError('Times must be sorted and unique.')
+        return abt
+
     video_metadata = sa.Column(
         pg.json.JSONB,
         sa.CheckConstraint(
