@@ -19,12 +19,7 @@ class BaseHandler(tornado.web.RequestHandler):
 class MainHandler(BaseHandler):
     def get(self):
         url_id = self.get_argument('v')
-        video = (
-            self.session
-            .query(models.Video)
-            .filter_by(url_id=url_id)
-            .one_or_none()
-        )
+        video = models.get_video(self.session, url_id=self.get_argument('v'))
         if not video:
             raise tornado.web.HTTPError(404)
         audio_url = None
