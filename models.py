@@ -147,7 +147,7 @@ class Video(Base):
 
 class TrackMatch(Base):
     __tablename__ = 'track_match'
-    track_match_id = sa.Column(
+    id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
     )
 
