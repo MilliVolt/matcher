@@ -147,7 +147,7 @@ class Video(Base):
 
 class TrackMatch(Base):
     __tablename__ = 'track_match'
-    track_match_id = sa.Column(
+    id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
     )
 
@@ -206,3 +206,22 @@ class TrackMatch(Base):
 def get_video(session, *, url_id, none=True):
     query = session.query(Video).filter_by(url_id=url_id)
     return query.one_or_none() if none else query.one()
+
+
+def get_unmatched(session, *, limit=10000):
+    sql = sa.text(
+        "select track.id as track_id,"
+        "       match.id as match_id,"
+        "       enum.enumlabel as master_type "
+        "from tft.video as track join tft.video as match"
+        " on track.id != match.id,"
+        " pg_enum enum join pg_type t on enum.enumtypid = t.oid"
+        " where t.typname = 'master_enum'"
+        "and not exists("
+        "select 1 from tft.track_match where"
+        " tft.track_match.track_id = track.id and"
+        " tft.track_match.match_id = match.id and"
+        " tft.track_match.master_type = enum.enumlabel::master_enum"
+        ") limit :limit;"
+    )
+    return session.bind.execute(sql, limit=limit)
