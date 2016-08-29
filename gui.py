@@ -10,15 +10,33 @@ from tornado.web import url
 import models
 
 
-class MainHandler(tornado.web.RequestHandler):
+class BaseHandler(tornado.web.RequestHandler):
+    @property
+    def session(self):
+        return self.application.session
+
+
+class MainHandler(BaseHandler):
     def get(self):
-        tracks = pafy.new(self.get_argument('v'))
+        url_id = self.get_argument('v')
+        video = models.get_video(self.session, url_id=self.get_argument('v'))
+        if not video:
+            raise tornado.web.HTTPError(404)
+        audio_url = None
+        video_seek = None
+        audio_seek = None
+        if video.video_master_matches:
+            best_match = video.video_master_matches[0]
+            video_seek = best_match.track_seek
+            audio_seek = best_match.match_seek
+            audio_url_id = best_match.match.url_id
+            audio_url = pafy.new(audio_url_id).getbestaudio().url
         self.render(
             'watch.html',
-            video_url=tracks.getbestvideo().url,
-            video_seek=self.get_argument('vseek', 0),
-            audio_url=tracks.getbestaudio().url,
-            audio_seek=self.get_argument('aseek', 0),
+            video_url=pafy.new(url_id).getbestvideo().url,
+            audio_url=audio_url,
+            video_seek=video_seek,
+            audio_seek=audio_seek,
         )
 
 

@@ -201,3 +201,8 @@ class TrackMatch(Base):
         sa.CheckConstraint('track_id != match_id'),
         sa.UniqueConstraint('track_id', 'match_id', 'master_type'),
     )
+
+
+def get_video(session, *, url_id, none=True):
+    query = session.query(Video).filter_by(url_id=url_id)
+    return query.one_or_none() if none else query.one()
