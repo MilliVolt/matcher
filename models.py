@@ -2,7 +2,11 @@
 
 To add tracks:
     with session.begin():
-        session.add(Video(url_id=<url_id>, duration=<duration>)
+        session.add(Video(
+            url_id=<url_id>, duration=<duration>,
+            video_shot_times=[...],
+            audio_beat_times=[...],
+        ))
 
 To add matches:
     track_query = session.query(Video).filter_by(url_id=<url_id_0>)
@@ -42,7 +46,7 @@ To get the top n matches for a track:
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, validates
 from sqlalchemy.sql import func
 
 from settings import user, password, host, port, database
@@ -83,12 +87,44 @@ def _match_relationship(track_or_match, video_or_audio):
     )
 
 
+def _time_track(name):
+    return sa.Column(
+        pg.ARRAY(pg.NUMERIC),
+        sa.CheckConstraint(
+            'COALESCE(ARRAY_LENGTH({}, 1), 0) > 0'.format(name)
+        ),
+        sa.CheckConstraint(
+            '0 < ALL({})'.format(name)
+        ),
+        sa.CheckConstraint(
+            'duration > ALL({})'.format(name)
+        ),
+        nullable=False,
+    )
+
+
 class Video(Base):
     __tablename__ = 'video'
     id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
     url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
     duration = sa.Column(pg.NUMERIC, nullable=False)
+
+    video_shot_times = _time_track('video_shot_times')
+    audio_beat_times = _time_track('audio_beat_times')
+
+    @validates('video_shot_times')
+    def validate_video_shot_times(self, key, vst):
+        if vst != sorted(set(vst)):
+            raise ValueError('Times must be sorted and unique.')
+        return vst
+
+    @validates('audio_beat_times')
+    def validate_audio_beat_times(self, key, abt):
+        if abt != sorted(set(abt)):
+            raise ValueError('Times must be sorted and unique.')
+        return abt
+
     video_metadata = sa.Column(
         pg.json.JSONB,
         sa.CheckConstraint(
