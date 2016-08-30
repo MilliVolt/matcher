@@ -221,7 +221,7 @@ def get_best_matches(session, *, video,
         .filter(TrackMatch.master_type == master_type)
         .filter(filterer == video.id)
         .filter(Video.tags.contains(tags))
-        .order_by(TrackMatch.scaled_score.desc())
+        .order_by(orderer.desc())
     )
 
 
