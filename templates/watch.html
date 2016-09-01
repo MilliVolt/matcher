@@ -1,36 +1,65 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <script src="/static/popcorn.js"></script>
-    <script src="/static/popcorn.compatible.js"></script>
-    <script src="/static/popcorn-base.js"></script>
-    <script src="/static/popcorn.inception.js"></script>
-  </head>
-  <body>
-    <div id="video-container">
-      <video preload="auto" autobuffer="true" width="480" controls>
-        <source src="{% raw video_url %}">
-      </video>
-    </div>
-    <script>
-      (function () {
-        var video_seek = parseFloat('{% raw video_seek %}');
-        var audio_seek = parseFloat('{% raw audio_seek %}');
-        var video = Popcorn('video', {frameAnimation: true});
-        video.on('timeupdate', function () {
-          if (video.currentTime() < video_seek) {
-            video.currentTime(video_seek);
-          };
-        });
-        video.defaults('inception', {target: 'video-container'});
-        video.inception({
-          source: '{% raw audio_url %}',
-          controls: true,
-          sync: true,
-          start: video_seek,
-          from: audio_seek
-        });
-      }());
-    </script>
-  </body>
+<head>
+</head>
+<body>
+  <video id="video" preload="auto" autobuffer="true" width="480" controls>
+    <source src="{% raw video_url %}">
+  </video>
+  <audio id="audio" preload="auto" autobuffer="true" controls>
+    <source src="{% raw audio_url %}">
+  </audio>
+  <script>
+    (function () {
+      var video_seek = parseFloat('{% raw video_seek %}');
+      var audio_seek = parseFloat('{% raw audio_seek %}');
+      var delay = video_seek - audio_seek;
+      var video = document.getElementById('video');
+      video.onplaying = (e) => {
+        audio.play();
+      };
+      video.onseeked = (e) => {
+        if (Math.abs(video.currentTime - audio.currentTime - delay) > 0.5) {
+          audio.currentTime = video.currentTime - delay;
+        };
+      };
+      video.onpause = () => {
+        audio.pause();
+      };
+      video.onended = () => {
+        audio.pause();
+      };
+      video.ontimeupdate = (e) => {
+        if (video.currentTime < video_seek) {
+          video.currentTime = video_seek;
+        };
+        if (Math.abs(video.currentTime - audio.currentTime - delay) > 0.5) {
+          audio.currentTime = video.currentTime - delay;
+        };
+      };
+      // We may need some workaround for Chrome on Android:
+      // https://bugs.chromium.org/p/chromium/issues/detail?id=138132
+      var audio = document.getElementById('audio');
+      audio.onplaying = (e) => {
+        video.play();
+      };
+      audio.onseeked = (e) => {
+        if (Math.abs(audio.currentTime - video.currentTime + delay) > 0.5) {
+          video.currentTime = audio.currentTime + delay;
+        };
+      };
+      audio.onpause = () => {
+        video.pause();
+      };
+      audio.onended = () => {
+        video.pause();
+      };
+      audio.ontimeupdate = (e) => {
+        if (audio.currentTime < audio_seek) {
+          audio.currentTime = audio_seek;
+        };
+      };
+    }());
+  </script>
+</body>
 </html>

@@ -32,16 +32,6 @@ To add matches:
     best, *rest = track.video_master_matches
     assert best.match == match_2_query.one()
     assert match_1_query.one().audio_candidate_matches[0].track == track
-
-To get the top n matches for a track:
-    def get_top_n(url_id, n, master_type):
-        video = session.query(Video).filter_by(url_id=url_id).one_or_none()
-        if not video:
-            return None
-        if master_type == 'video':
-            return video.video_master_maches.limit(n)
-        else:
-            return video.audio_master_matches.limit(n)
 """
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
@@ -73,20 +63,6 @@ def create_engine():
     return sa.create_engine(connection_string)
 
 
-def _match_relationship(track_or_match, video_or_audio):
-    return relationship(
-        'TrackMatch',
-        primaryjoin=(
-            "and_(Video.id==TrackMatch.{}_id,"
-            " TrackMatch.master_type=='{}')".format(
-                track_or_match, video_or_audio
-            )
-        ),
-        order_by='desc(TrackMatch.scaled_score)',
-        lazy='dynamic',
-    )
-
-
 def _time_track(name):
     return sa.Column(
         pg.ARRAY(pg.NUMERIC),
@@ -109,6 +85,7 @@ class Video(Base):
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
     url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
     duration = sa.Column(pg.NUMERIC, nullable=False)
+    tags = sa.Column(pg.ARRAY(pg.TEXT), nullable=False)
 
     video_shot_times = _time_track('video_shot_times')
     audio_beat_times = _time_track('audio_beat_times')
@@ -134,11 +111,6 @@ class Video(Base):
         nullable=False,
         server_default='{}',
     )
-
-    video_master_matches = _match_relationship('track', 'video')
-    audio_master_matches = _match_relationship('track', 'audio')
-    video_candidate_matches = _match_relationship('match', 'audio')
-    audio_candidate_matches = _match_relationship('match', 'video')
 
     __table_args__ = (
         sa.UniqueConstraint('id', 'duration'),
@@ -206,6 +178,51 @@ class TrackMatch(Base):
 def get_video(session, *, url_id, none=True):
     query = session.query(Video).filter_by(url_id=url_id)
     return query.one_or_none() if none else query.one()
+
+
+def _pick_value(value, possibilities, choices):
+    try:
+        index = possibilities.index(value)
+    except ValueError:
+        raise ValueError("'{}' not in {}".format(value, possibilities))
+    return (c[index] for c in choices)
+
+def get_best_matches(session, *, video,
+        track_or_match='track', master_type='video',
+        scaled_or_absolute_score='scaled', tags=[]):
+    """Get matches for a video
+
+    video_master_matches:
+        track_or_match='track', master_type='video'
+    audio_master_matches:
+        track_or_match='track', master_type='audio'
+    video_candidate_matches:
+        track_or_match='match', master_type='audio'
+    audio_candidate_matches:
+        track_or_match='match', master_type='video'
+    """
+    joiner, filterer = _pick_value(
+        track_or_match,
+        ('track', 'match'),
+        (
+            (TrackMatch.match_id, TrackMatch.track_id),
+            (TrackMatch.track_id, TrackMatch.match_id),
+        )
+    )
+    orderer, = _pick_value(
+        scaled_or_absolute_score,
+        ('scaled', 'absolute'),
+        ((TrackMatch.scaled_score, TrackMatch.score),)
+    )
+
+    return (
+        session.query(TrackMatch)
+        .join(Video, joiner == Video.id)
+        .filter(TrackMatch.master_type == master_type)
+        .filter(filterer == video.id)
+        .filter(Video.tags.contains(tags))
+        .order_by(orderer.desc())
+    )
 
 
 def get_unmatched(session, *, limit=10000):

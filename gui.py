@@ -21,12 +21,18 @@ class MainHandler(BaseHandler):
         url_id = self.get_argument('v')
         video = models.get_video(self.session, url_id=self.get_argument('v'))
         if not video:
-            raise tornado.web.HTTPError(404)
+            best_match = None
+            #raise tornado.web.HTTPError(404)
+        else:
+            tags = self.get_argument('tags', None)
+            if tags:
+                tags = tags.split(',')
+            best_match = models.get_best_matches(self.session, video=video,
+                tags=tags)
         audio_url = None
         video_seek = None
         audio_seek = None
-        if video.video_master_matches:
-            best_match = video.video_master_matches[0]
+        if best_match:
             video_seek = best_match.track_seek
             audio_seek = best_match.match_seek
             audio_url_id = best_match.match.url_id
@@ -34,9 +40,9 @@ class MainHandler(BaseHandler):
         self.render(
             'watch.html',
             video_url=pafy.new(url_id).getbestvideo().url,
-            audio_url=audio_url,
-            video_seek=video_seek,
-            audio_seek=audio_seek,
+            audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
+            video_seek=video_seek or self.get_argument('vseek', '0'),
+            audio_seek=audio_seek or self.get_argument('aseek', '0'),
         )
 
 
