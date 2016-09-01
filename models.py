@@ -209,11 +209,11 @@ def get_best_matches(session, *, video,
             (TrackMatch.track_id, TrackMatch.match_id),
         )
     )
-    orderer = next(_pick_value(
+    orderer, = _pick_value(
         scaled_or_absolute_score,
         ('scaled', 'absolute'),
         ((TrackMatch.scaled_score, TrackMatch.score),)
-    ))
+    )
 
     return (
         session.query(TrackMatch)
