@@ -233,7 +233,7 @@ def get_unmatched(session, *, limit=10000):
         "from tft.video as track join tft.video as match"
         " on track.id != match.id,"
         " pg_enum enum join pg_type t on enum.enumtypid = t.oid"
-        " where t.typname = 'master_enum'"
+        " where t.typname = 'master_enum' "
         "and not exists("
         "select 1 from tft.track_match where"
         " tft.track_match.track_id = track.id and"
