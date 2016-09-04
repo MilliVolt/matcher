@@ -19,6 +19,7 @@ def record_match(unmatch):
 
     Given a row from models.get_unmatched, create a TrackMatch.
     """
+    engine.dispose()
     get = session.query(models.Video).get
     track = get(str(unmatch.track_id))
     match = get(str(unmatch.match_id))
