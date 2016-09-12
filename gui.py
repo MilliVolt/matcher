@@ -24,15 +24,16 @@ class MainHandler(BaseHandler):
             best_match = None
             #raise tornado.web.HTTPError(404)
         else:
-            tags = self.get_argument('tags', None)
+            tags = self.get_argument('tags', [])
             if tags:
                 tags = tags.split(',')
-            best_match = models.get_best_matches(self.session, video=video,
+            best_matches = models.get_best_matches(self.session, video=video,
                 tags=tags)
         audio_url = None
         video_seek = None
         audio_seek = None
-        if best_match:
+        if best_matches.count():
+            best_match = best_matches[0]
             video_seek = best_match.track_seek
             audio_seek = best_match.match_seek
             audio_url_id = best_match.match.url_id
