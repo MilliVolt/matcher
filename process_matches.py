@@ -21,24 +21,17 @@ def record_match(unmatch):
     """
     engine.dispose()
     get = session.query(models.Video).get
-    track = get(str(unmatch.track_id))
-    match = get(str(unmatch.match_id))
-    if unmatch.master_type == 'video':
-        master = track.video_shot_times
-        candidate = match.audio_beat_times
-    else:
-        master = track.audio_beat_times
-        candidate = match.video_shot_times
-    compat = compatibility(master, candidate)
+    from_audio = get(str(unmatch.from_id))
+    to = get(str(unmatch.to_id))
+    compat = compatibility(from_audio.audio_beat_times, to.audio_beat_times)
     with session.begin():
-        session.add(models.TrackMatch(
-            track=track,
-            match=match,
-            master_type=unmatch.master_type,
+        session.add(models.AudioSwap(
+            from_audio=from_audio,
+            to_audio=to,
             score=compat.score,
             scaled_score=compat.scaled_score,
-            track_seek=compat.master_seek,
-            match_seek=compat.candidate_seek,
+            from_seek=compat.master_seek,
+            to_seek=compat.candidate_seek,
         ))
 
 
