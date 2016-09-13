@@ -1,38 +1,4 @@
-"""Postgres
-
-To add tracks:
-    with session.begin():
-        session.add(Video(
-            url_id=<url_id>, duration=<duration>,
-            video_shot_times=[...],
-            audio_beat_times=[...],
-        ))
-
-To add matches:
-    track_query = session.query(Video).filter_by(url_id=<url_id_0>)
-    match_1_query = session.query(Video).filter_by(url_id=<url_id_1>)
-    match_2_query = session.query(Video).filter_by(url_id=<url_id_2>)
-    with session.begin():
-        session.add(TrackMatch(
-            track=track_query.one(), match=match_1_query.one(),
-            master_type=<'video' or 'audio'>,
-            score=<score>, scaled_score=<scaled_score>,
-            track_seek=<track_seek>, match_seek=<match_seek>,
-        ))
-        session.add(TrackMatch(
-            track=track_query.one(), match=match_2_query.one(),
-            master_type=<'video' or 'audio'>,
-            score=<score>, scaled_score=<scaled_score>,
-            track_seek=<track_seek>, match_seek=<match_seek>,
-        ))
-
-    # Now we can query. Let's say the master_type was 'video' and the
-    # scaled_scores were 0.8 and 0.9
-    track = track_query.one()
-    best, *rest = track.video_master_matches
-    assert best.match == match_2_query.one()
-    assert match_1_query.one().audio_candidate_matches[0].track == track
-"""
+"""Postgres stuff."""
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql as pg
 from sqlalchemy.ext.declarative import declarative_base
@@ -63,22 +29,6 @@ def create_engine():
     return sa.create_engine(connection_string)
 
 
-def _time_track(name):
-    return sa.Column(
-        pg.ARRAY(pg.NUMERIC),
-        sa.CheckConstraint(
-            'COALESCE(ARRAY_LENGTH({}, 1), 0) > 0'.format(name)
-        ),
-        sa.CheckConstraint(
-            '0 < ALL({})'.format(name)
-        ),
-        sa.CheckConstraint(
-            'duration > ALL({})'.format(name)
-        ),
-        nullable=False,
-    )
-
-
 class Video(Base):
     __tablename__ = 'video'
     id = sa.Column(
@@ -86,15 +36,15 @@ class Video(Base):
     url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
     duration = sa.Column(pg.NUMERIC, nullable=False)
     tags = sa.Column(pg.ARRAY(pg.TEXT), nullable=False)
-
-    video_shot_times = _time_track('video_shot_times')
-    audio_beat_times = _time_track('audio_beat_times')
-
-    @validates('video_shot_times')
-    def validate_video_shot_times(self, key, vst):
-        if vst != sorted(set(vst)):
-            raise ValueError('Times must be sorted and unique.')
-        return vst
+    audio_beat_times = sa.Column(
+        pg.ARRAY(pg.NUMERIC),
+        sa.CheckConstraint(
+            'COALESCE(ARRAY_LENGTH(audio_beat_times, 1), 0) > 0'
+        ),
+        sa.CheckConstraint('0 < ALL(audio_beat_times)'),
+        sa.CheckConstraint('duration > ALL(audio_beat_times)'),
+        nullable=False,
+    )
 
     @validates('audio_beat_times')
     def validate_audio_beat_times(self, key, abt):
@@ -117,22 +67,19 @@ class Video(Base):
     )
 
 
-class TrackMatch(Base):
-    __tablename__ = 'track_match'
+class AudioSwap(Base):
+    __tablename__ = 'audioswap'
     id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
     )
 
-    track_id = sa.Column(pg.UUID, nullable=False)
-    track_duration = sa.Column(pg.NUMERIC, nullable=False)
-    track = relationship('Video', foreign_keys=(track_id, track_duration))
+    from_id = sa.Column(pg.UUID, nullable=False)
+    from_duration = sa.Column(pg.NUMERIC, nullable=False)
+    from_audio = relationship('Video', foreign_keys=(from_id, from_duration))
 
-    match_id = sa.Column(pg.UUID, nullable=False)
-    match_duration = sa.Column(pg.NUMERIC, nullable=False)
-    match = relationship('Video', foreign_keys=(match_id, match_duration))
-
-    master_type = sa.Column(
-        pg.ENUM('video', 'audio', name='master_enum'), nullable=False)
+    to_id = sa.Column(pg.UUID, nullable=False)
+    to_duration = sa.Column(pg.NUMERIC, nullable=False)
+    to_audio = relationship('Video', foreign_keys=(to_id, to_duration))
 
     score = sa.Column(
         sa.Integer,
@@ -144,34 +91,34 @@ class TrackMatch(Base):
         sa.CheckConstraint('(scaled_score > 0) AND (scaled_score <= 1)'),
         nullable=False,
     )
-    track_seek = sa.Column(
+    from_seek = sa.Column(
         pg.NUMERIC,
         sa.CheckConstraint(
-            '(track_seek >= 0) AND (track_seek < track_duration)'),
+            '(from_seek >= 0) AND (from_seek < from_duration)'),
         nullable=False,
     )
-    match_seek = sa.Column(
+    to_seek = sa.Column(
         pg.NUMERIC,
         sa.CheckConstraint(
-            '(match_seek >= 0) AND (match_seek < match_duration)'),
+            '(to_seek >= 0) AND (to_seek < to_duration)'),
         nullable=False,
     )
 
     __table_args__ = (
         sa.ForeignKeyConstraint(
-            ('track_id', 'track_duration'),
+            ('from_id', 'from_duration'),
             ('video.id', 'video.duration'),
             onupdate='CASCADE',
             ondelete='CASCADE',
         ),
         sa.ForeignKeyConstraint(
-            ('match_id', 'match_duration'),
+            ('to_id', 'to_duration'),
             ('video.id', 'video.duration'),
             onupdate='CASCADE',
             ondelete='CASCADE',
         ),
-        sa.CheckConstraint('track_id != match_id'),
-        sa.UniqueConstraint('track_id', 'match_id', 'master_type'),
+        sa.CheckConstraint('from_id != to_id'),
+        sa.UniqueConstraint('from_id', 'to_id'),
     )
 
 
@@ -187,38 +134,29 @@ def _pick_value(value, possibilities, choices):
         raise ValueError("'{}' not in {}".format(value, possibilities))
     return (c[index] for c in choices)
 
-def get_best_matches(session, *, video,
-        track_or_match='track', master_type='video',
-        scaled_or_absolute_score='scaled', tags=[]):
-    """Get matches for a video
 
-    video_master_matches:
-        track_or_match='track', master_type='video'
-    audio_master_matches:
-        track_or_match='track', master_type='audio'
-    video_candidate_matches:
-        track_or_match='match', master_type='audio'
-    audio_candidate_matches:
-        track_or_match='match', master_type='video'
-    """
+def get_best_matches(session, *, video,
+        from_or_to='from', scaled_or_absolute_score='scaled', tags=None):
+    """Get matches for a video."""
     joiner, filterer = _pick_value(
-        track_or_match,
-        ('track', 'match'),
+        from_or_to,
+        ('from', 'to'),
         (
-            (TrackMatch.match_id, TrackMatch.track_id),
-            (TrackMatch.track_id, TrackMatch.match_id),
+            (AudioSwap.from_id, AudioSwap.to_id),
+            (AudioSwap.to_id, AudioSwap.from_id),
         )
     )
     orderer, = _pick_value(
         scaled_or_absolute_score,
         ('scaled', 'absolute'),
-        ((TrackMatch.scaled_score, TrackMatch.score),)
+        ((AudioSwap.scaled_score, AudioSwap.score),)
     )
+    if tags is None:
+        tags = []
 
     return (
-        session.query(TrackMatch)
+        session.query(AudioSwap)
         .join(Video, joiner == Video.id)
-        .filter(TrackMatch.master_type == master_type)
         .filter(filterer == video.id)
         .filter(Video.tags.contains(tags))
         .order_by(orderer.desc())
@@ -227,18 +165,14 @@ def get_best_matches(session, *, video,
 
 def get_unmatched(session, *, limit=10000):
     sql = sa.text(
-        "select track.id as track_id,"
-        "       match.id as match_id,"
-        "       enum.enumlabel as master_type "
-        "from tft.video as track join tft.video as match"
-        " on track.id != match.id,"
-        " pg_enum enum join pg_type t on enum.enumtypid = t.oid"
-        " where t.typname = 'master_enum' "
+        "select from_audio.id as from_id,"
+        "       to_audio.id as to_id "
+        "from tft.video as from_audio join tft.video as to_audio"
+        " on from_audio.id != to_audio.id "
         "and not exists("
-        "select 1 from tft.track_match where"
-        " tft.track_match.track_id = track.id and"
-        " tft.track_match.match_id = match.id and"
-        " tft.track_match.master_type = enum.enumlabel::master_enum"
+        "select 1 from tft.audioswap where"
+        " tft.audioswap.from_id = from_audio.id and"
+        " tft.audioswap.to_id = to_audio.id"
         ") limit :limit;"
     )
     return session.bind.execute(sql, limit=limit)
