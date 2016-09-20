@@ -39,10 +39,17 @@ class Video(Base):
     audio_beat_times = sa.Column(
         pg.ARRAY(pg.NUMERIC),
         sa.CheckConstraint(
-            'COALESCE(ARRAY_LENGTH(audio_beat_times, 1), 0) > 0'
+            'COALESCE(ARRAY_LENGTH(audio_beat_times, 1), 0) > 0',
+            name='video_audio_beat_times_not_empty',
         ),
-        sa.CheckConstraint('0 < ALL(audio_beat_times)'),
-        sa.CheckConstraint('duration > ALL(audio_beat_times)'),
+        sa.CheckConstraint(
+            '0 <= ALL(audio_beat_times)',
+            name='video_audio_beat_times_all_nonnegative',
+        ),
+        sa.CheckConstraint(
+            'duration >= ALL(audio_beat_times)',
+            name='video_audio_beat_times_lessequal_duration',
+        ),
         nullable=False,
     )
 
@@ -83,24 +90,31 @@ class AudioSwap(Base):
 
     score = sa.Column(
         sa.Integer,
-        sa.CheckConstraint('score > 0'),
+        sa.CheckConstraint('score > 0', name='audioswap_score_greater_0'),
         nullable=False,
     )
     scaled_score = sa.Column(
         pg.NUMERIC,
-        sa.CheckConstraint('(scaled_score > 0) AND (scaled_score <= 1)'),
+        sa.CheckConstraint(
+            '(scaled_score > 0) AND (scaled_score <= 1)',
+            name='audioswap_scaled_score_between_0_and_1',
+        ),
         nullable=False,
     )
     from_seek = sa.Column(
         pg.NUMERIC,
         sa.CheckConstraint(
-            '(from_seek >= 0) AND (from_seek < from_duration)'),
+            '(from_seek >= 0) AND (from_seek <= from_duration)',
+            name='audioswap_from_seek_within_bounds'
+        ),
         nullable=False,
     )
     to_seek = sa.Column(
         pg.NUMERIC,
         sa.CheckConstraint(
-            '(to_seek >= 0) AND (to_seek < to_duration)'),
+            '(to_seek >= 0) AND (to_seek <= to_duration)',
+            name='audioswap_to_seek_within_bounds'
+        ),
         nullable=False,
     )
 
@@ -117,7 +131,7 @@ class AudioSwap(Base):
             onupdate='CASCADE',
             ondelete='CASCADE',
         ),
-        sa.CheckConstraint('from_id != to_id'),
+        sa.CheckConstraint('from_id != to_id', name='audioswap_diff_videos'),
         sa.UniqueConstraint('from_id', 'to_id'),
     )
 
