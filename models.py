@@ -178,15 +178,16 @@ def get_best_matches(session, *, video,
 
 
 def get_unmatched(session, *, limit=10000):
-    sql = sa.text(
-        "select from_audio.id as from_id,"
-        "       to_audio.id as to_id "
-        "from tft.video as from_audio join tft.video as to_audio"
-        " on from_audio.id != to_audio.id "
-        "and not exists("
-        "select 1 from tft.audioswap where"
-        " tft.audioswap.from_id = from_audio.id and"
-        " tft.audioswap.to_id = to_audio.id"
-        ") limit :limit;"
-    )
+    sql = sa.text("""
+        with results as (
+            select from_audio.id as from_id, to_audio.id as to_id
+            from tft.video as from_audio join tft.video as to_audio
+            on from_audio.id != to_audio.id and not exists(
+                select 1 from tft.audioswap where
+                tft.audioswap.from_id = from_audio.id and
+                tft.audioswap.to_id = to_audio.id
+            )
+        ) select from_id, to_id from results offset (
+            select floor(random() * count(*)) from results
+        ) limit :limit;""")
     return session.bind.execute(sql, limit=limit)
