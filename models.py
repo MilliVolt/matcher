@@ -47,7 +47,7 @@ class Video(Base):
             name='video_audio_beat_times_all_nonnegative',
         ),
         sa.CheckConstraint(
-            'duration >= ALL(audio_beat_times)',
+            '(duration + 1) >= ALL(audio_beat_times)',
             name='video_audio_beat_times_lessequal_duration',
         ),
         nullable=False,
