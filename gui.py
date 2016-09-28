@@ -36,7 +36,7 @@ class MainHandler(BaseHandler):
             best_match = best_matches[0]
             video_seek = best_match.from_seek
             audio_seek = best_match.to_seek
-            audio_url_id = best_match.to.url_id
+            audio_url_id = best_match.to_audio.url_id
             audio_url = pafy.new(audio_url_id).getbestaudio().url
         self.render(
             'watch.html',
