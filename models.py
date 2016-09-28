@@ -105,7 +105,7 @@ class AudioSwap(Base):
     from_seek = sa.Column(
         pg.NUMERIC,
         sa.CheckConstraint(
-            '(from_seek >= 0) AND (from_seek <= from_duration)',
+            '(from_seek >= 0) AND (from_seek <= from_duration + 1)',
             name='audioswap_from_seek_within_bounds'
         ),
         nullable=False,
@@ -113,7 +113,7 @@ class AudioSwap(Base):
     to_seek = sa.Column(
         pg.NUMERIC,
         sa.CheckConstraint(
-            '(to_seek >= 0) AND (to_seek <= to_duration)',
+            '(to_seek >= 0) AND (to_seek <= to_duration + 1)',
             name='audioswap_to_seek_within_bounds'
         ),
         nullable=False,
