@@ -156,8 +156,8 @@ def get_best_matches(session, *, video,
         from_or_to,
         ('from', 'to'),
         (
-            (AudioSwap.from_id, AudioSwap.from_id),
-            (AudioSwap.to_id, AudioSwap.to_id),
+            (AudioSwap.from_id, AudioSwap.to_id),
+            (AudioSwap.from_id, AudioSwap.to_id),
         )
     )
     orderer, = _pick_value(
