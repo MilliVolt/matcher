@@ -14,12 +14,16 @@ Base = declarative_base(metadata=metadata)
 sa.event.listen(
     Base.metadata,
     'before_create',
-    sa.DDL(
-        'ALTER DATABASE tft SET TIMEZONE TO "UTC";'
-        'CREATE SCHEMA IF NOT EXISTS public;'
-        'CREATE SCHEMA IF NOT EXISTS tft;'
-        'CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA pg_catalog;'
-    ),
+    sa.DDL("""
+        ALTER DATABASE tft SET TIMEZONE TO "UTC";
+        CREATE SCHEMA IF NOT EXISTS public;
+        CREATE SCHEMA IF NOT EXISTS tft;
+        CREATE EXTENSION IF NOT EXISTS "uuid-ossp" WITH SCHEMA pg_catalog;
+        CREATE OR REPLACE FUNCTION get_bps(duration NUMERIC, abt NUMERIC[])
+          RETURNS NUMERIC LANGUAGE SQL IMMUTABLE AS $$
+            SELECT COALESCE(ARRAY_LENGTH(abt, 1), 0) / duration;
+          $$;
+    """),
 )
 
 
@@ -71,6 +75,7 @@ class Video(Base):
 
     __table_args__ = (
         sa.UniqueConstraint('id', 'duration'),
+        sa.Index('bps_index', sa.text('get_bps(duration, audio_beat_times)')),
     )
 
 
@@ -149,7 +154,8 @@ def _pick_value(value, possibilities, choices):
     return (c[index] for c in choices)
 
 
-def get_best_matches(session, *, video,
+def get_best_matches(
+        session, *, video,
         from_or_to='from', scaled_or_absolute_score='scaled', tags=None):
     """Get matches for a video."""
     joiner, filterer = _pick_value(
@@ -182,7 +188,10 @@ def get_unmatched(session, *, limit=10000):
         with results as (
             select from_audio.id as from_id, to_audio.id as to_id
             from tft.video as from_audio join tft.video as to_audio
-            on from_audio.id != to_audio.id and not exists(
+            on from_audio.id != to_audio.id
+            and get_bps(from_audio.duration, from_audio.audio_beat_times) < 2
+            and get_bps(to_audio.duration, to_audio.audio_beat_times) < 2
+            and not exists(
                 select 1 from tft.audioswap where
                 tft.audioswap.from_id = from_audio.id and
                 tft.audioswap.to_id = to_audio.id
