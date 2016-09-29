@@ -38,7 +38,7 @@ def count_fuzzy_set_intersection(ar1, ar2, threshold):
     github.com/numpy/numpy/blob/v1.11.1/numpy/lib/arraysetops.py#L218-L259
     """
     aux = np.concatenate((ar1, ar2))
-    aux.sort()
+    aux.sort(kind='mergesort')
     return np.count_nonzero(np.abs(aux[1:] - aux[:-1]) < threshold)
 
 
