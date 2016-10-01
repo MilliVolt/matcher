@@ -15,39 +15,12 @@ import argparse
 from collections import namedtuple
 
 import numpy as np
-from numpy.fft import fft, ifft, fft2, ifft2, fftshift
-from scipy import signal
- 
-def cross_correlation_using_fft(x, y):
-    f1 = fft(x)
-    f2 = fft(np.flipud(y))
-    cc = np.real(ifft(f1 * f2))
-    return fftshift(cc)
-
-def cc_from_file(file1, file2):
-    f1 = np.loadtxt(file1)
-    f2 = np.loadtxt(file2)
-    import ipdb; ipdb.set_trace()
-    return match(f1, f2)
-
-def rfft_xcorr(x, y):
-    M = len(x) + len(y) - 1
-    N = 2 ** int(np.ceil(np.log2(M)))
-    X = np.fft.rfft(x, N)
-    Y = np.fft.rfft(y, N)
-    cxy = np.fft.irfft(X * np.conj(Y))
-    cxy = np.hstack((cxy[:len(x)], cxy[N-len(y)+1:]))
-    return cxy
-
-def ffi_match(x, ref):
-    cxy = rfft_xcorr(x, ref)
-    index = np.argmax(cxy)
-    if index < len(x):
-        return index
-    else: # negative lag
-        return index - len(cxy)
+import scipy
 
 def scipy_ffi_match(a,b):
+    """ffi powered offset finding between two waveforms
+    per http://stackoverflow.com/a/4688875
+    """
     # patch zero for the length uniformity
     len_diff = len(a) - len(b)
     if len_diff > 0:
