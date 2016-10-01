@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 """Match master stream to candidate stream
-
 Example usage:
     master = master_audio_track()
     candidate = candidate_audio_track()
@@ -16,7 +15,37 @@ import argparse
 from collections import namedtuple
 
 import numpy as np
+from numpy.fft import fft, ifft, fft2, ifft2, fftshift
+from scipy import signal
+ 
+def cross_correlation_using_fft(x, y):
+    f1 = fft(x)
+    f2 = fft(np.flipud(y))
+    cc = np.real(ifft(f1 * f2))
+    return fftshift(cc)
 
+def cc_from_file(file1, file2):
+    f1 = np.loadtxt(file1)
+    f2 = np.loadtxt(file2)
+    import ipdb; ipdb.set_trace()
+    return match(f1, f2)
+
+def rfft_xcorr(x, y):
+    M = len(x) + len(y) - 1
+    N = 2 ** int(np.ceil(np.log2(M)))
+    X = np.fft.rfft(x, N)
+    Y = np.fft.rfft(y, N)
+    cxy = np.fft.irfft(X * np.conj(Y))
+    cxy = np.hstack((cxy[:len(x)], cxy[N-len(y)+1:]))
+    return cxy
+
+def ffi_match(x, ref):
+    cxy = rfft_xcorr(x, ref)
+    index = np.argmax(cxy)
+    if index < len(x):
+        return index
+    else: # negative lag
+        return index - len(cxy)
 
 Match = namedtuple(
     'Match',
@@ -110,42 +139,41 @@ def compatibility(master, candidate, threshold=None):
     master = np.array(master)
     candidate = np.array(candidate)
     size = master.size
-    best_match = Match(0, 0, 0, 0, 0, 0)
 
-    # "Slide" the candidate array across the master array
-    for offset in range(-size + 1, len(candidate)):
-        # The sample is a "window" into the candidate the same size as the
-        # master that slides from left to right
-        sample = candidate[max(offset, 0) : size + offset]
+    # instead of iteerate through all possible offsets, we use ffi to figure
+    # out the correct offset
+    offset = ffi_match(master, candidate)
 
-        # The offset into the master array goes from right to left, stopping
-        # at the first element of the master
-        master_offset = -min(offset, 0)
+    # The sample is a "window" into the candidate the same size as the
+    # master that slides from left to right
+    sample = candidate[max(offset, 0) : size + offset]
 
-        # Since we are interested in the spacing between values, we add a delay
-        # to the sample so that its first value matches the master exactly
-        delay = master[master_offset] - sample[0]
-        delayed_sample = sample + delay
+    # The offset into the master array goes from right to left, stopping
+    # at the first element of the master
+    master_offset = -min(offset, 0)
 
-        # The compatibility score is the number of close matches between the
-        # sample and the section of the master array it covers
-        score = count_fuzzy_set_intersection(master, delayed_sample, threshold)
+    # Since we are interested in the spacing between values, we add a delay
+    # to the sample so that its first value matches the master exactly
+    delay = master[master_offset] - sample[0]
+    delayed_sample = sample + delay
 
-        # Scale it by the size of the master array
-        scaled = score / size
+    # The compatibility score is the number of close matches between the
+    # sample and the section of the master array it covers
+    score = count_fuzzy_set_intersection(master, delayed_sample, threshold)
 
-        # Determine the seek values for the master and candidate. The
-        # difference between these values is the delay between the tracks.
-        mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
+    # Scale it by the size of the master array
+    scaled = score / size
 
-        # We want the earliest part of the master array that maximizes
-        # compatibility, so any score greater than or equal to the highest
-        # score we've seen becomes the highest score
-        match = Match(scaled, score, offset, delay, mast_seek, cand_seek)
-        if match.score >= best_match.score:
-            best_match = match
+    # Determine the seek values for the master and candidate. The
+    # difference between these values is the delay between the tracks.
+    mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
 
-    return best_match
+    # We want the earliest part of the master array that maximizes
+    # compatibility, so any score greater than or equal to the highest
+    # score we've seen becomes the highest score
+    match = Match(scaled, score, offset, delay, mast_seek, cand_seek)
+
+    return match
 
 
 def compatibility_from_files(file_name_1, file_name_2, threshold=None):
