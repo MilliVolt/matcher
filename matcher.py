@@ -47,6 +47,18 @@ def ffi_match(x, ref):
     else: # negative lag
         return index - len(cxy)
 
+def scipy_ffi_match(a,b):
+    # patch zero for the length uniformity
+    len_diff = len(a) - len(b)
+    if len_diff > 0:
+        b = np.append(b, np.zeros(len_diff))
+    if len_diff < 0:
+        a = np.append(a, np.zeros(-len_diff))
+    af = scipy.fft(a)
+    bf = scipy.fft(b)
+    c = scipy.ifft(af * scipy.conj(bf))
+    return np.argmax(abs(c))
+
 Match = namedtuple(
     'Match',
     'scaled_score, score, offset, delay, master_seek, candidate_seek'
@@ -142,7 +154,7 @@ def compatibility(master, candidate, threshold=None):
 
     # instead of iteerate through all possible offsets, we use ffi to figure
     # out the correct offset
-    offset = ffi_match(master, candidate)
+    offset = scipy_ffi_match(master, candidate)
 
     # The sample is a "window" into the candidate the same size as the
     # master that slides from left to right
