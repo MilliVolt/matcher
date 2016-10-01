@@ -15,22 +15,11 @@ import argparse
 from collections import namedtuple
 
 import numpy as np
-from numpy.fft import fft, ifft, fft2, ifft2, fftshift
-from scipy import signal
- 
-def cross_correlation_using_fft(x, y):
-    f1 = fft(x)
-    f2 = fft(np.flipud(y))
-    cc = np.real(ifft(f1 * f2))
-    return fftshift(cc)
-
-def cc_from_file(file1, file2):
-    f1 = np.loadtxt(file1)
-    f2 = np.loadtxt(file2)
-    import ipdb; ipdb.set_trace()
-    return match(f1, f2)
 
 def rfft_xcorr(x, y):
+    """finding correlation with fft
+    per http://stackoverflow.com/a/4696026
+    """
     M = len(x) + len(y) - 1
     N = 2 ** int(np.ceil(np.log2(M)))
     X = np.fft.rfft(x, N)
@@ -40,6 +29,9 @@ def rfft_xcorr(x, y):
     return cxy
 
 def ffi_match(x, ref):
+    """finding correlation with fft
+    per http://stackoverflow.com/a/4696026
+    """
     cxy = rfft_xcorr(x, ref)
     index = np.argmax(cxy)
     if index < len(x):
