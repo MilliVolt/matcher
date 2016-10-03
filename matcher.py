@@ -114,8 +114,8 @@ def compatibility(master, candidate, threshold=None):
     candidate = np.array(candidate)
 
     # The total number of samples is the higher duration times the frequency
-    duration = int(np.ceil(max(master[-1], candidate[-1])))
-    num_samples = duration * frequency
+    duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
+    num_samples = duration * frequency + 1
 
     # sm and sc are the square-wave versions of the master and candidate
     # 1 where a sample has a beat, 0 otherwise
