@@ -20,7 +20,7 @@ import numpy as np
 
 Match = namedtuple(
     'Match',
-    'scaled_score, score, offset, delay, master_seek, candidate_seek'
+    'scaled_score, score, delay, master_seek, candidate_seek'
 )
 
 
@@ -107,45 +107,41 @@ def compatibility(master, candidate, threshold=None):
     """
     if threshold is None:
         threshold = 0.022
+
+    # The sample frequency is just high enough to distinguish the treshold
+    frequency = int(np.ceil(1 / threshold))
     master = np.array(master)
     candidate = np.array(candidate)
-    size = master.size
-    best_match = Match(0, 0, 0, 0, 0, 0)
 
-    # "Slide" the candidate array across the master array
-    for offset in range(-size + 1, len(candidate)):
-        # The sample is a "window" into the candidate the same size as the
-        # master that slides from left to right
-        sample = candidate[max(offset, 0) : size + offset]
+    # The total number of samples is the higher duration times the frequency
+    duration = int(np.ceil(max(master[-1], candidate[-1])))
+    num_samples = duration * frequency
 
-        # The offset into the master array goes from right to left, stopping
-        # at the first element of the master
-        master_offset = -min(offset, 0)
+    # sm and sc are the square-wave versions of the master and candidate
+    # 1 where a sample has a beat, 0 otherwise
+    sm = np.zeros(num_samples)
+    sm[(master * frequency).astype(int)] = 1
+    sc = np.zeros(num_samples)
+    sc[(candidate * frequency).astype(int)] = 1
 
-        # Since we are interested in the spacing between values, we add a delay
-        # to the sample so that its first value matches the master exactly
-        delay = master[master_offset] - sample[0]
-        delayed_sample = sample + delay
+    # xcor is the cross-correlation calculated using fft
+    xcor = np.fft.irfft(np.fft.rfft(sm) * np.conj(np.fft.rfft(sc)))
 
-        # The compatibility score is the number of close matches between the
-        # sample and the section of the master array it covers
-        score = count_fuzzy_set_intersection(master, delayed_sample, threshold)
+    # shift is the phase shift between sm and sc, or the delay measured in
+    # number of samples
+    shift = xcor.argmax()
+    if shift > num_samples / 2:
+        shift -= num_samples
 
-        # Scale it by the size of the master array
-        scaled = score / size
-
-        # Determine the seek values for the master and candidate. The
-        # difference between these values is the delay between the tracks.
-        mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
-
-        # We want the earliest part of the master array that maximizes
-        # compatibility, so any score greater than or equal to the highest
-        # score we've seen becomes the highest score
-        match = Match(scaled, score, offset, delay, mast_seek, cand_seek)
-        if match.score >= best_match.score:
-            best_match = match
-
-    return best_match
+    # the offsets are the indices of the first coincidental beat between the
+    # master and the shifted candidate
+    master_offset = np.roll(sc, shift)[sm == 1].argmax()
+    candidate_offset = master_offset + int(shift / frequency)
+    delay = master[master_offset] - candidate[candidate_offset]
+    score = count_fuzzy_set_intersection(master, candidate + delay, threshold)
+    scaled = score / master.size
+    mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
+    return Match(scaled, score, delay, mast_seek, cand_seek)
 
 
 def compatibility_from_files(file_name_1, file_name_2, threshold=None):
