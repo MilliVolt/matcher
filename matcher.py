@@ -116,14 +116,15 @@ def compatibility(master, candidate, threshold=None):
     # The total number of samples is the higher duration times the frequency
     # times 2 (to make fft happy)
     duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
-    num_samples = duration * frequency * 2
+    num_samples = duration * frequency
+    double_that = num_samples * 2
 
     # sm and sc are the square-wave versions of the master and candidate:
     # 1 where a sample has a beat, 0 otherwise
-    sm = np.zeros(num_samples)
+    sm = np.zeros(double_that)
     master_hits = (master * frequency).astype(int)
     sm[master_hits] = 1
-    sc = np.zeros(num_samples)
+    sc = np.zeros(double_that)
     candidate_hits = (candidate * frequency).astype(int)
     sc[candidate_hits] = 1
 
