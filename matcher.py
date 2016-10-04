@@ -114,15 +114,18 @@ def compatibility(master, candidate, threshold=None):
     candidate = np.array(candidate)
 
     # The total number of samples is the higher duration times the frequency
+    # times 2 (to make fft happy)
     duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
-    num_samples = duration * frequency + 1
+    num_samples = duration * frequency * 2
 
-    # sm and sc are the square-wave versions of the master and candidate
+    # sm and sc are the square-wave versions of the master and candidate:
     # 1 where a sample has a beat, 0 otherwise
     sm = np.zeros(num_samples)
-    sm[(master * frequency).astype(int)] = 1
+    master_hits = (master * frequency).astype(int)
+    sm[master_hits] = 1
     sc = np.zeros(num_samples)
-    sc[(candidate * frequency).astype(int)] = 1
+    candidate_hits = (candidate * frequency).astype(int)
+    sc[candidate_hits] = 1
 
     # xcor is the cross-correlation calculated using fft
     xcor = np.fft.irfft(np.fft.rfft(sm) * np.conj(np.fft.rfft(sc)))
@@ -136,7 +139,8 @@ def compatibility(master, candidate, threshold=None):
     # the offsets are the indices of the first coincidental beat between the
     # master and the shifted candidate
     master_offset = np.roll(sc, shift)[sm == 1].argmax()
-    candidate_offset = master_offset + int(shift / frequency)
+    candidate_offset = np.searchsorted(
+        candidate_hits + shift, master_hits[master_offset])
     delay = master[master_offset] - candidate[candidate_offset]
     score = count_fuzzy_set_intersection(master, candidate + delay, threshold)
     scaled = score / master.size
