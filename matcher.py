@@ -142,8 +142,16 @@ def compatibility(master, candidate, threshold=None):
     master_offset = np.roll(sc, shift)[sm == 1].argmax()
     candidate_offset = np.searchsorted(
         candidate_hits + shift, master_hits[master_offset])
+
+    # the delay is the difference in seconds between the timestamps of the
+    # first coincidental beat
     delay = master[master_offset] - candidate[candidate_offset]
-    score = count_fuzzy_set_intersection(master, candidate + delay, threshold)
+
+    # since (potentially) only part of the candidate covers the master, we only
+    # look at the part of it that is covered
+    delayed = candidate + delay
+    candidate_sample = delayed[master_offset : master.size + master_offset]
+    score = count_fuzzy_set_intersection(master, candidate_sample, threshold)
     scaled = score / master.size
     mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
     return Match(scaled, score, delay, mast_seek, cand_seek)
