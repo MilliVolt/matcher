@@ -114,10 +114,11 @@ def compatibility(master, candidate, threshold=None):
     candidate = np.array(candidate)
 
     # The total number of samples is the higher duration times the frequency
-    # times 2 (to make fft happy)
+    # times 2 (to make fft happy) plus one??? seems to fix some boundary
+    # problems
     duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
     num_samples = duration * frequency
-    double_that = num_samples * 2
+    double_that = num_samples * 2 + 1
 
     # sm and sc are the square-wave versions of the master and candidate:
     # 1 where a sample has a beat, 0 otherwise
@@ -134,8 +135,8 @@ def compatibility(master, candidate, threshold=None):
     # shift is the phase shift between sm and sc, or the delay measured in
     # number of samples
     shift = xcor.argmax()
-    if shift > num_samples / 2:
-        shift -= num_samples
+    if shift > num_samples:
+        shift -= double_that - 1
 
     # the offsets are the indices of the first coincidental beat between the
     # master and the shifted candidate
