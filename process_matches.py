@@ -24,7 +24,10 @@ def record_match(unmatch):
     get = session.query(models.Video).get
     from_audio = get(str(unmatch.from_id))
     to = get(str(unmatch.to_id))
-    compat = compatibility(from_audio.audio_beat_times, to.audio_beat_times)
+    compat = compatibility(
+        from_audio.audio_beat_times, from_audio.fft,
+        to.audio_beat_times, to.conj_fft,
+    )
     with session.begin():
         session.add(models.AudioSwap(
             from_audio=from_audio,

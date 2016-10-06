@@ -52,6 +52,8 @@ class Video(Base):
         ),
         nullable=False,
     )
+    fft = sa.Column(pg.ARRAY(pg.NUMERIC), nullable=False)
+    conj_fft = sa.Column(pg.ARRAY(pg.NUMERIC), nullable=False)
 
     @validates('audio_beat_times')
     def validate_audio_beat_times(self, key, abt):

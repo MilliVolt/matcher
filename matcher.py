@@ -76,7 +76,7 @@ def get_seek_values(master, master_offset, delay):
     return master_seek, candidate_seek
 
 
-def compatibility(master, candidate, threshold=None):
+def compatibility_fft_on_the_fly(master, candidate, threshold=None):
     """Determine the compatibility of the candidate to the master.
 
     The master and the candidate should be arrays of monotonically increasing
@@ -158,10 +158,92 @@ def compatibility(master, candidate, threshold=None):
     return Match(scaled, score, delay, mast_seek, cand_seek)
 
 
+def compatibility(master, master_fft, candidate, candidate_conj_fft):
+    """Determine the compatibility of the candidate to the master.
+
+    The master and the candidate should be arrays of monotonically increasing
+    positive values, each with spacing between the values of at least the
+    threshold value.
+
+    In this case compatibility means the number of close matches with respect
+    to the spacing of the values. If master is an array of shot times for a
+    video and candidate is an array of beat times in an audio track,
+    compatibility is high if the two arrays "match up".
+
+    The default threshold comes from the strictest value here:
+    en.wikipedia.org/w/index.php?title=Audio_to_video_synchronization
+    &oldid=728675183#Recommendations
+
+    This function returns a Match object with the following attributes:
+        scaled_score: The score divided by the length of the master.
+        score: The number of coincidental values between the master and the
+            candidate.
+        offset: The steps to move the candidate array in order to maximize
+            compatibility with the master array. Not needed for syncing.
+        delay: The difference between the value of the master array and the
+            value of the candidate array at the offset. If this value is
+            negative, seek by the value of -delay into the candidate track. If
+            this value is 0, play both tracks at the same time with no seeking.
+            If this value is positive, seek by the value of delay into the
+            master track.
+    """
+    threshold = 0.022
+
+    # The sample frequency is just high enough to distinguish the treshold
+    frequency = int(np.ceil(1 / threshold))
+    master = np.array(master)
+    candidate = np.array(candidate)
+
+    # The total number of samples is the higher duration times the frequency
+    # times 2 (to make fft happy) plus one??? seems to fix some boundary
+    # problems
+    duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
+    num_samples = duration * frequency
+    double_that = num_samples * 2 + 1
+
+    # sm and sc are the square-wave versions of the master and candidate:
+    # 1 where a sample has a beat, 0 otherwise
+    sm = np.zeros(double_that)
+    master_hits = (master * frequency).astype(int)
+    sm[master_hits] = 1
+    sc = np.zeros(double_that)
+    candidate_hits = (candidate * frequency).astype(int)
+    sc[candidate_hits] = 1
+
+    # xcor is the cross-correlation calculated using fft
+    xcor = np.fft.irfft(master_fft * candidate_conj_fft)
+
+    # shift is the phase shift between sm and sc, or the delay measured in
+    # number of samples
+    shift = xcor.argmax()
+    if shift > num_samples:
+        shift -= double_that - 1
+
+    # the offsets are the indices of the first coincidental beat between the
+    # master and the shifted candidate
+    master_offset = np.roll(sc, shift)[sm == 1].argmax()
+    candidate_offset = np.searchsorted(
+        candidate_hits + shift, master_hits[master_offset])
+
+    # the delay is the difference in seconds between the timestamps of the
+    # first coincidental beat
+    delay = master[master_offset] - candidate[candidate_offset]
+
+    # since (potentially) only part of the candidate covers the master, we only
+    # look at the part of it that is covered
+    delayed = candidate + delay
+    candidate_sample = delayed[master_offset : master.size + master_offset]
+    score = count_fuzzy_set_intersection(master, candidate_sample, threshold)
+    scaled = score / master.size
+    mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
+    return Match(scaled, score, delay, mast_seek, cand_seek)
+
+
 def compatibility_from_files(file_name_1, file_name_2, threshold=None):
     """Return the compatibility for the values in the two given files."""
     fn1, fn2 = file_name_1, file_name_2
-    return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
+    return compatibility_fft_on_the_fly(
+        np.loadtxt(fn1), np.loadtxt(fn2), threshold)
 
 
 def main():
