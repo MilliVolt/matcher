@@ -95,10 +95,6 @@ class AudioSwap(Base):
     )
     scaled_score = sa.Column(
         pg.NUMERIC,
-        sa.CheckConstraint(
-            '(scaled_score > 0) AND (scaled_score <= 1)',
-            name='audioswap_scaled_score_between_0_and_1',
-        ),
         nullable=False,
     )
     from_seek = sa.Column(
@@ -178,7 +174,7 @@ def get_best_matches(
     )
 
 
-def get_unmatched(session, *, limit=10000):
+def get_unmatched(session, *, limit=250):
     sql = sa.text("""
         with results as (
             select from_audio.id as from_id, to_audio.id as to_id
@@ -188,8 +184,6 @@ def get_unmatched(session, *, limit=10000):
                 select 1 from tft.audioswap where
                 tft.audioswap.from_id = from_audio.id and
                 tft.audioswap.to_id = to_audio.id
-            )
-        ) select from_id, to_id from results offset (
-            select floor(random() * count(*)) from results
-        ) limit :limit;""")
+            ) and to_audio.id in (select id from tft.video order by random() limit 10)
+        ) select from_id, to_id from results limit :limit;""")
     return session.bind.execute(sql, limit=limit)

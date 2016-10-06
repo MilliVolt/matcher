@@ -20,6 +20,8 @@ class MainHandler(BaseHandler):
     def get(self):
         url_id = self.get_argument('v')
         video = models.get_video(self.session, url_id=self.get_argument('v'))
+        spec_audio_url_id = self.get_argument('a', None)
+        best_matches_count = 0
         if not video:
             best_match = None
             #raise tornado.web.HTTPError(404)
@@ -29,19 +31,27 @@ class MainHandler(BaseHandler):
                 tags = tags.split(',')
             best_matches = models.get_best_matches(self.session, video=video,
                 tags=tags)
+            best_matches_count = best_matches.count()
         audio_url = None
         video_seek = None
         audio_seek = None
-        if best_matches.count():
+        audio_url_id = None
+        if best_matches_count:
             best_match = best_matches[0]
             video_seek = best_match.from_seek
             audio_seek = best_match.to_seek
             audio_url_id = best_match.to_audio.url_id
             audio_url = pafy.new(audio_url_id).getbestaudio().url
+        if spec_audio_url_id:
+            audio_url_id = spec_audio_url_id
+            audio_url = pafy.new(audio_url_id).getbestaudio().url
         self.render(
             'watch.html',
             video_url=pafy.new(url_id).getbestvideo().url,
             audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
+            video_url_id=url_id,
+            audio_url_id=audio_url_id or url_id,
+            backups = [] if best_matches_count <= 1 else best_matches[:10],
             video_seek=video_seek or self.get_argument('vseek', '0'),
             audio_seek=audio_seek or self.get_argument('aseek', '0'),
         )
