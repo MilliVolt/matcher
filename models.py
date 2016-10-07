@@ -174,17 +174,20 @@ def get_best_matches(
     )
 
 
-def get_unmatched(session, *, limit=250):
+def get_unmatched(session, *, limit=10000):
     # Would be good to use TABLESAMPLE here... postgres >= 9.5
     sql = sa.text("""
-        with results as (
-            select from_audio.id as from_id, to_audio.id as to_id
-            from tft.video as from_audio join tft.video as to_audio
-            on from_audio.id != to_audio.id
-            and not exists(
-                select 1 from tft.audioswap where
-                tft.audioswap.from_id = from_audio.id and
-                tft.audioswap.to_id = to_audio.id
-            ) and to_audio.id in (select id from tft.video order by random() limit 10)
-        ) select from_id, to_id from results limit :limit;""")
+        select x.id as from_id, y.id as to_id
+        from (select id from tft.video) x
+        join (select id from tft.video) y
+        on x.id != y.id
+        and not exists (
+            select 1 from tft.audioswap
+            where tft.audioswap.from_id = x.id
+            and tft.audioswap.to_id = y.id
+        )
+        and y.id in (
+            select id from tft.video order by random() limit 10
+        )
+        limit :limit;""")
     return session.bind.execute(sql, limit=limit)

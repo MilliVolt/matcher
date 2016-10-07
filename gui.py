@@ -15,6 +15,30 @@ class BaseHandler(tornado.web.RequestHandler):
     def session(self):
         return self.application.session
 
+class IndexHandler(BaseHandler):
+    def get(self):
+        best_results = (
+            self.session
+            .query(models.AudioSwap)
+            .filter(models.AudioSwap.score > 50)
+            .group_by(models.AudioSwap.from_id, models.AudioSwap.id)
+            .order_by(models.AudioSwap.scaled_score.desc())
+            .limit(self.get_argument('n', 10))
+        )
+        self.write(''.join('''
+            {}<br><a href="/watch?v={}">{}</a><br>{}<br>
+            sscore: {}<br>
+            ascore: {}<br>
+            <br>
+        '''.format(
+            i,
+            match.from_audio.url_id, match.from_audio.video_metadata['title'],
+            match.to_audio.video_metadata['title'],
+            match.scaled_score, match.score
+        ) for i, match in enumerate(best_results)))
+        self.finish()
+
+
 
 class MainHandler(BaseHandler):
     def get(self):

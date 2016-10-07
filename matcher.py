@@ -17,6 +17,8 @@ from collections import namedtuple
 
 import numpy as np
 
+from scipy.signal import fftconvolve
+
 
 Match = namedtuple(
     'Match',
@@ -123,18 +125,20 @@ def compatibility(master, candidate, threshold=None):
     # sm and sc are the square-wave versions of the master and candidate:
     # 1 where a sample has a beat, 0 otherwise
     sm = np.zeros(double_that)
-    master_hits = (master * frequency).astype(int)
+    master_hits = np.round(
+        np.fromiter(map(float, master * frequency), dtype=float)).astype(int)
     sm[master_hits] = 1
     sc = np.zeros(double_that)
-    candidate_hits = (candidate * frequency).astype(int)
+    candidate_hits = np.round(
+        np.fromiter(map(float, candidate * frequency), dtype=float)).astype(int)
     sc[candidate_hits] = 1
 
     # xcor is the cross-correlation calculated using fft
-    xcor = np.fft.irfft(np.fft.rfft(sm) * np.conj(np.fft.rfft(sc)))
+    xcor = fftconvolve(sm, sc[::-1])
 
     # shift is the phase shift between sm and sc, or the delay measured in
     # number of samples
-    shift = xcor.argmax()
+    shift = xcor.argmax() + 1 - double_that
     if shift > num_samples:
         shift -= double_that - 1
 
