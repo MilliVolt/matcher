@@ -41,7 +41,7 @@ def count_fuzzy_set_intersection(ar1, ar2, threshold):
     """
     aux = np.concatenate((ar1, ar2))
     aux.sort(kind='mergesort')
-    return np.count_nonzero(np.abs(aux[1:] - aux[:-1]) < threshold)
+    return np.count_nonzero(aux[1:] - aux[:-1] < threshold)
 
 
 def get_seek_values(master, master_offset, delay):
@@ -119,7 +119,7 @@ def compatibility(master, candidate, threshold=None):
     # times 2 (to make fft happy) plus one??? seems to fix some boundary
     # problems
     duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
-    num_samples = duration * frequency
+    num_samples = duration * frequency + 1
 
     # sm and sc are the square-wave versions of the master and candidate:
     # 1 where a sample has a beat, 0 otherwise

@@ -88,6 +88,7 @@ class Application(tornado.web.Application):
             'template_path': 'templates',
         }
         urls = [
+            url(r'/', IndexHandler),
             url(r'/watch', MainHandler),
         ]
         super().__init__(urls, **settings)

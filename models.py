@@ -174,7 +174,7 @@ def get_best_matches(
     )
 
 
-def get_unmatched(session, *, limit=10000):
+def get_unmatched(session, *, limit=2000):
     # Would be good to use TABLESAMPLE here... postgres >= 9.5
     sql = sa.text("""
         select x.id as from_id, y.id as to_id
