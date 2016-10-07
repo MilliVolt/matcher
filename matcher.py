@@ -120,15 +120,14 @@ def compatibility(master, candidate, threshold=None):
     # problems
     duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
     num_samples = duration * frequency
-    double_that = num_samples * 2 + 1
 
     # sm and sc are the square-wave versions of the master and candidate:
     # 1 where a sample has a beat, 0 otherwise
-    sm = np.zeros(double_that)
+    sm = np.zeros(num_samples)
     master_hits = np.round(
         np.fromiter(map(float, master * frequency), dtype=float)).astype(int)
     sm[master_hits] = 1
-    sc = np.zeros(double_that)
+    sc = np.zeros(num_samples)
     candidate_hits = np.round(
         np.fromiter(map(float, candidate * frequency), dtype=float)).astype(int)
     sc[candidate_hits] = 1
@@ -138,9 +137,9 @@ def compatibility(master, candidate, threshold=None):
 
     # shift is the phase shift between sm and sc, or the delay measured in
     # number of samples
-    shift = xcor.argmax() + 1 - double_that
+    shift = xcor.argmax() + 1 - num_samples
     if shift > num_samples:
-        shift -= double_that - 1
+        shift -= num_samples - 1
 
     # the offsets are the indices of the first coincidental beat between the
     # master and the shifted candidate
