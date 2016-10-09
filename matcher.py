@@ -78,6 +78,11 @@ def get_seek_values(master, master_offset, delay):
     return master_seek, candidate_seek
 
 
+def broadcast_subtractoin(array_1, array_2):
+    """Modify np.histogram to deal with 22ms?"""
+    return a - b[:, np.newaxis]
+
+
 def compatibility(master, candidate, threshold=None):
     """Determine the compatibility of the candidate to the master.
 
