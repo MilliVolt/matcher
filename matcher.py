@@ -18,6 +18,7 @@ from collections import namedtuple
 import numpy as np
 
 from scipy.signal import fftconvolve
+from scipy.stats import gaussian_kde
 
 
 Match = namedtuple(
@@ -84,6 +85,37 @@ def broadcast_subtractoin(array_1, array_2):
 
 
 def compatibility(master, candidate, threshold=None):
+    if threshold is None:
+        threshold = 0.022
+    master = np.array(master)
+    candidate = np.array(candidate)
+    diff = master - candidate[:, np.newaxis]
+    bins = np.round((diff[0][-1] - diff[-1][0]) / threshold).astype(int)
+    for i in range(23044 - 100, 23044 + 100):
+        c = np.histogram(diff, bins=i)
+        p = c[0].argmax()
+        print(c[1][p])
+    assert False
+    counts = np.histogram(diff, bins=bins)
+    peak = counts[0].argmax()
+    lower = counts[1][peak]
+    upper = counts[1][peak + 1]
+    hits = np.where(np.logical_and(lower < diff, diff < upper))
+    master_offset = hits[1][0]
+    cand_offset = hits[0][0]
+    delay = diff[cand_offset, master_offset]
+    cand_sample = candidate[cand_offset : cand_offset + master.size] + delay
+    score = count_fuzzy_set_intersection(master, cand_sample, threshold)
+    scaled = score / master.size
+    mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
+    from IPython.core.debugger import Tracer; Tracer()()
+    print('new', 'master_offset', master_offset, 'cand_offset', cand_offset)
+    return Match(scaled, score, delay, mast_seek, cand_seek)
+    # hits[1][0] master offset
+    # hits[0][0] candidate offset?
+    # print(hits[0][0], hits[1][0], diff[hits[0][0], hits[1][0]], hist[0].max())
+
+def compatibility2(master, candidate, threshold=None):
     """Determine the compatibility of the candidate to the master.
 
     The master and the candidate should be arrays of monotonically increasing
@@ -149,12 +181,12 @@ def compatibility(master, candidate, threshold=None):
     # the offsets are the indices of the first coincidental beat between the
     # master and the shifted candidate
     master_offset = np.roll(sc, shift)[sm == 1].argmax()
-    candidate_offset = np.searchsorted(
+    cand_offset = np.searchsorted(
         candidate_hits + shift, master_hits[master_offset])
 
     # the delay is the difference in seconds between the timestamps of the
     # first coincidental beat
-    delay = master[master_offset] - candidate[candidate_offset]
+    delay = master[master_offset] - candidate[cand_offset]
 
     # since (potentially) only part of the candidate covers the master, we only
     # look at the part of it that is covered
