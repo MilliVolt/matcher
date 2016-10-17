@@ -19,6 +19,9 @@ import numpy as np
 
 from scipy.signal import fftconvolve
 
+from accelerate.cuda.fft import FFTPlan
+from numba import cuda
+@cuda.jit('void(complex64[:,:], complex64[:,:])')
 
 Match = namedtuple(
     'Match',
@@ -76,6 +79,48 @@ def get_seek_values(master, master_offset, delay):
         master_seek = master[master_offset]
         candidate_seek = master_seek - delay
     return master_seek, candidate_seek
+
+def compatibility_cu(master, candidate, threshold=None):
+    threadperblock = 32, 8
+    blockpergrid = best_grid_size(tuple(reversed(image.shape)), threadperblock)
+
+    # The sample frequency is just high enough to distinguish the treshold
+    frequency = int(np.ceil(1 / threshold))
+    master = np.array(master)
+    candidate = np.array(candidate)
+
+    duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
+    num_samples = duration * frequency + 1
+    
+    
+    stream1 = cuda.stream()
+    stream2 = cuda.stream()
+
+    master_plan = FFTPlan(shape=image.shape, itype=np.complex64,
+                       otype=np.complex64, stream=stream1)
+    candidate_plan = FFTPlan(shape=image.shape, itype=np.complex64,
+                       otype=np.complex64, stream=stream2)
+
+    with cuda.pinned(master, candidate):
+
+        d_master = cuda.to_device(master, stream=stream1)
+        d_candidate = cuda.to_device(candidate, stream=stream2)
+
+        master_plan.forward(d_master, out=d_master)
+        candidate_plan.forward(d_cadidate, out=d_cadidate)
+
+        stream2.synchronize()
+
+        mult_inplace[blockpergrid, threadperblock, stream1](d_master,
+                                                            d_cadidate)
+        fftplan1.inverse(d_master, out=d_master)
+
+        # implicitly synchronizes the streams
+        res = d_master.copy_to_host().real / np.prod(image.shape)
+
+    import ipdb; ipdb.set_trace()
+
+
 
 
 def compatibility(master, candidate, threshold=None):
@@ -164,7 +209,7 @@ def compatibility(master, candidate, threshold=None):
 def compatibility_from_files(file_name_1, file_name_2, threshold=None):
     """Return the compatibility for the values in the two given files."""
     fn1, fn2 = file_name_1, file_name_2
-    return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
+    return compatibility_cu(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
 
 
 def main():
