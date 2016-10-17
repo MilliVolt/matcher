@@ -93,6 +93,8 @@ def get_seek_values(master, master_offset, delay):
 
 def compatibility_cu(master, candidate, threshold=None):
     # The sample frequency is just high enough to distinguish the treshold
+    if threshold is None:
+        threshold = 0.022
     frequency = int(np.ceil(1 / threshold))
     master = np.array(master)
     candidate = np.array(candidate)
