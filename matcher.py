@@ -79,6 +79,39 @@ def get_seek_values(master, master_offset, delay):
 
 
 def compatibility(master, candidate, threshold=None):
+    if threshold is None:
+        threshold = 0.022
+
+    master = np.array(master)
+    candidate = np.array(candidate)
+    diff = master - candidate[:, np.newaxis]
+    delays = np.ravel(diff)
+    delays.sort()
+    max_score = score = 0
+    right_pointer = left_pointer = 0
+    right_delay = left_delay = delays[left_pointer]
+    upper_limit = left_delay + threshold
+    while (left_pointer < delays.size - 1):
+        #print(left_pointer, left_delay, upper_limit, right_pointer, right_delay, right_delay <= upper_limit, score, max_score)
+        if (right_pointer < delays.size - 1) and (right_delay <= upper_limit):
+            #score += 1
+            #if score > max_score:
+            #    max_score = score
+            right_pointer += 1
+            right_delay = delays[right_pointer]
+        else:
+            #score -= 1
+            #score = 0
+            left_pointer += 1
+            left_delay = delays[left_pointer]
+            upper_limit = left_delay + threshold
+        score = right_pointer - left_pointer
+        max_score = max(max_score, score)
+    print(max_score)
+    return None
+
+
+def compatibility2(master, candidate, threshold=None):
     """Determine the compatibility of the candidate to the master.
 
     The master and the candidate should be arrays of monotonically increasing
