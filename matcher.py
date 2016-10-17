@@ -21,7 +21,18 @@ from scipy.signal import fftconvolve
 
 from accelerate.cuda.fft import FFTPlan
 from numba import cuda
+
 @cuda.jit('void(complex64[:,:], complex64[:,:])')
+def mult_inplace(img, resp):
+    i, j = cuda.grid(2)
+    if j < img.shape[0] and i < img.shape[1]:
+        img[j, i] *= resp[j, i]
+
+
+def best_grid_size(size, tpb):
+    bpg = np.ceil(np.array(size, dtype=np.float) / tpb).astype(np.int).tolist()
+    return tuple(bpg)
+
 
 Match = namedtuple(
     'Match',
