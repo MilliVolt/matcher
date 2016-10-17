@@ -103,14 +103,24 @@ def compatibility_cu(master, candidate, threshold=None):
     duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
     num_samples = duration * frequency + 1
     
+    # sm and sc are the square-wave versions of the master and candidate:
+    # 1 where a sample has a beat, 0 otherwise
+    sm = np.zeros(num_samples)
+    master_hits = np.round(
+        np.fromiter(map(float, master * frequency), dtype=float)).astype(int)
+    sm[master_hits] = 1
+    sc = np.zeros(num_samples)
+    candidate_hits = np.round(
+        np.fromiter(map(float, candidate * frequency), dtype=float)).astype(int)
+    sc[candidate_hits] = 1
     
     stream1 = cuda.stream()
     stream2 = cuda.stream()
 
-    master_plan = FFTPlan(shape=image.shape, itype=np.complex64,
-                       otype=np.complex64, stream=stream1)
-    candidate_plan = FFTPlan(shape=image.shape, itype=np.complex64,
-                       otype=np.complex64, stream=stream2)
+    master_plan = FFTPlan(shape=(len(sm),), itype=uint8,
+                       otype=uint8, stream=stream1)
+    candidate_plan = FFTPlan(shape=(len(sc),), itype=uint8,
+                       otype=uint8, stream=stream2)
 
     with cuda.pinned(master, candidate):
 
