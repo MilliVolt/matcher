@@ -92,9 +92,6 @@ def get_seek_values(master, master_offset, delay):
     return master_seek, candidate_seek
 
 def compatibility_cu(master, candidate, threshold=None):
-    threadperblock = 32, 8
-    blockpergrid = best_grid_size(tuple(reversed(image.shape)), threadperblock)
-
     # The sample frequency is just high enough to distinguish the treshold
     frequency = int(np.ceil(1 / threshold))
     master = np.array(master)
@@ -114,6 +111,9 @@ def compatibility_cu(master, candidate, threshold=None):
         np.fromiter(map(float, candidate * frequency), dtype=float)).astype(int)
     sc[candidate_hits] = 1
     
+    threadperblock = 32, 8
+    blockpergrid = best_grid_size(tuple(reversed((len(sm),))), threadperblock)
+
     stream1 = cuda.stream()
     stream2 = cuda.stream()
 
