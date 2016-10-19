@@ -15,6 +15,8 @@ Example usage:
 import argparse
 from collections import namedtuple
 
+import numba
+
 import numpy as np
 
 from scipy.signal import fftconvolve
@@ -78,6 +80,24 @@ def get_seek_values(master, master_offset, delay):
     return master_seek, candidate_seek
 
 
+@numba.njit()
+def fuzzy_mode_idx(arr, argsort_idx, threshold):
+    result = (0, 0)
+    longest = 0
+    i = j = 0
+    end = len(argsort_idx)
+    while i < end:
+        if j < end and arr[argsort_idx[j]] - arr[argsort_idx[i]] <= threshold:
+            current_distance = j - i
+            if current_distance > longest:
+                longest = current_distance
+                result = (i, j)
+            j += 1
+        else:
+            i += 1
+    return result
+
+
 def compatibility(master, candidate, threshold=None):
     if threshold is None:
         threshold = 0.022
@@ -86,29 +106,15 @@ def compatibility(master, candidate, threshold=None):
     candidate = np.array(candidate)
     diff = master - candidate[:, np.newaxis]
     delays = np.ravel(diff)
-    delays.sort()
-    max_score = score = 0
-    right_pointer = left_pointer = 0
-    right_delay = left_delay = delays[left_pointer]
-    upper_limit = left_delay + threshold
-    while (left_pointer < delays.size - 1):
-        #print(left_pointer, left_delay, upper_limit, right_pointer, right_delay, right_delay <= upper_limit, score, max_score)
-        if (right_pointer < delays.size - 1) and (right_delay <= upper_limit):
-            #score += 1
-            #if score > max_score:
-            #    max_score = score
-            right_pointer += 1
-            right_delay = delays[right_pointer]
-        else:
-            score -= 1
-            #score = 0
-            left_pointer += 1
-            left_delay = delays[left_pointer]
-            upper_limit = left_delay + threshold
-        score = right_pointer - left_pointer
-        max_score = max(max_score, score)
-    print(max_score)
-    return None
+    sorted_delays_idx = np.argsort(delays)
+    left, right = fuzzy_mode_idx(delays, sorted_delays_idx, threshold)
+    score = right - left + 1
+    scaled = score / master.size
+    earliest = sorted_delays_idx[left:right].min()
+    delay = delays[earliest]
+    master_offset, cand_offset = divmod(earliest, master.size)
+    mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
+    return Match(scaled, score, delay, mast_seek, cand_seek)
 
 
 def compatibility2(master, candidate, threshold=None):
