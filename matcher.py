@@ -100,7 +100,7 @@ def compatibility(master, candidate, threshold=None):
             right_pointer += 1
             right_delay = delays[right_pointer]
         else:
-            #score -= 1
+            score -= 1
             #score = 0
             left_pointer += 1
             left_delay = delays[left_pointer]
