@@ -236,7 +236,7 @@ def main():
     parser.add_argument('track2')
     args = parser.parse_args()
     match = compatibility_from_files(args.track1, args.track2)
-    print(match._asdict())
+    print(Match(*match)._asdict())
 
 
 if __name__ == '__main__':
