@@ -109,10 +109,10 @@ def compatibility(master, candidate, threshold=None):
     delays.sort(kind='mergesort')
     left, right = fuzzy_mode_idx(delays, threshold)
     score = right - left + 1
-    scaled = score / master.size
+    scaled = min(score / master.size, 1)
     small = delays[left]
     big = delays[right]
-    hits = np.where(np.logical_and(small <= diff, diff <= big))
+    hits = np.where((small <= diff) & (diff <= big))
     master_offset = hits[1][0]
     cand_offset = hits[0][0]
     delay = diff[cand_offset, master_offset]
