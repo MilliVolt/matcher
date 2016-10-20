@@ -127,8 +127,7 @@ def compatibility(master, candidate, threshold=None):
     delay_estimate = master[master_offset] - candidate[candidate_offset]
     # end fft
 
-    diff = master - candidate[:, np.newaxis]
-    all_delays = diff.flatten()
+    all_delays = (master - candidate[:, np.newaxis]).reshape(-1)
     delays = all_delays[np.abs(all_delays - delay_estimate) < 0.022]
     delays.sort(kind='mergesort')
     left, right = fuzzy_mode_idx(delays, threshold)
@@ -136,10 +135,9 @@ def compatibility(master, candidate, threshold=None):
     scaled = min(score / master.size, 1)
     small = delays[left]
     big = delays[right]
-    hits = np.where((small <= diff) & (diff <= big))
-    master_offset = hits[1][0]
-    cand_offset = hits[0][0]
-    delay = diff[cand_offset, master_offset]
+    earliest = np.where((small <= all_delays) & (all_delays <= big))[0][0]
+    master_offset, cand_offset = divmod(earliest, master.size)
+    delay = all_delays[earliest]
     mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
     return Match(scaled, score, delay, mast_seek, cand_seek)
 
@@ -230,9 +228,7 @@ def compatibility2(master, candidate, threshold=None):
 def compatibility_from_files(file_name_1, file_name_2, threshold=None):
     """Return the compatibility for the values in the two given files."""
     fn1, fn2 = file_name_1, file_name_2
-    #return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
-    horse = np.arange(10000)
-    return compatibility(horse, horse, threshold)
+    return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
 
 
 def main():
