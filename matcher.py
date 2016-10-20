@@ -128,7 +128,7 @@ def compatibility(master, candidate, threshold=None):
     # end fft
 
     diff = master - candidate[:, np.newaxis]
-    all_delays = np.ravel(diff).copy()
+    all_delays = diff.flatten()
     delays = all_delays[np.abs(all_delays - delay_estimate) < 0.022]
     delays.sort(kind='mergesort')
     left, right = fuzzy_mode_idx(delays, threshold)
@@ -230,7 +230,9 @@ def compatibility2(master, candidate, threshold=None):
 def compatibility_from_files(file_name_1, file_name_2, threshold=None):
     """Return the compatibility for the values in the two given files."""
     fn1, fn2 = file_name_1, file_name_2
-    return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
+    #return compatibility(np.loadtxt(fn1), np.loadtxt(fn2), threshold)
+    horse = np.arange(10000)
+    return compatibility(horse, horse, threshold)
 
 
 def main():
