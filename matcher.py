@@ -22,7 +22,7 @@ import numpy as np
 
 Match = namedtuple(
     'Match',
-    'scaled_score, score, delay, master_seek, candidate_seek'
+    'score, scaled_score, delay, master_seek, candidate_seek'
 )
 
 
@@ -59,7 +59,7 @@ def best_match(master, candidate, threshold):
                 mast_seek = master[master_offset]
                 cand_seek = mast_seek - delay
             rest = (score / master.size, delay, mast_seek, cand_seek)
-    return (rest[0], best_score, rest[1], rest[2], rest[3])
+    return best_score, rest[0], rest[1], rest[2], rest[3]
 
 
 def compatibility(master, candidate, threshold=None):

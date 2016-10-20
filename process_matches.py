@@ -29,10 +29,10 @@ def record_match(unmatch):
         session.add(models.AudioSwap(
             from_audio=from_audio,
             to_audio=to,
-            score=compat.score or 1,
-            scaled_score=compat.scaled_score,
-            from_seek=compat.master_seek,
-            to_seek=compat.candidate_seek,
+            score=compat[0] or 1,
+            scaled_score=compat[1],
+            from_seek=compat[3],
+            to_seek=compat[4],
         ))
 
 
