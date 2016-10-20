@@ -137,7 +137,8 @@ def compatibility(master, candidate, threshold=None):
     master_offset, cand_offset = divmod(earliest, master.size)
     delay = all_delays[earliest]
     mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
-    return Match(scaled, score, delay, mast_seek, cand_seek)
+    # Creating the namedtuple here eats a surprisingly large amount of time!
+    return (scaled, score, delay, mast_seek, cand_seek)
 
 
 def compatibility2(master, candidate, threshold=None):
