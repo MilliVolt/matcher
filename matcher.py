@@ -102,10 +102,36 @@ def compatibility(master, candidate, threshold=None):
     if threshold is None:
         threshold = 0.022
 
-    master = np.array(master, dtype=np.float32)
-    candidate = np.array(candidate, dtype=np.float32)
+    #master = np.array(master, dtype=np.float32)
+    #candidate = np.array(candidate, dtype=np.float32)
+    master = np.array(master)
+    candidate = np.array(candidate)
+
+    # fft
+    frequency = int(np.ceil(1 / threshold))
+    duration = int(np.ceil(float(max(master[-1], candidate[-1]))))
+    num_samples = duration * frequency + 1
+    sm = np.zeros(num_samples)
+    master_hits = np.round(
+        np.fromiter(map(float, master * frequency), dtype=float)).astype(int)
+    sm[master_hits] = 1
+    sc = np.zeros(num_samples)
+    candidate_hits = np.round(
+        np.fromiter(map(float, candidate * frequency), dtype=float)).astype(int)
+    sc[candidate_hits] = 1
+    xcor = fftconvolve(sm, sc[::-1])
+    shift = xcor.argmax() + 1 - num_samples
+    if shift > num_samples:
+        shift -= num_samples - 1
+    master_offset = np.roll(sc, shift)[sm == 1].argmax()
+    candidate_offset = np.searchsorted(
+        candidate_hits + shift, master_hits[master_offset])
+    delay_estimate = master[master_offset] - candidate[candidate_offset]
+    # end fft
+
     diff = master - candidate[:, np.newaxis]
-    delays = np.ravel(diff).copy()
+    all_delays = np.ravel(diff).copy()
+    delays = all_delays[np.abs(all_delays - delay_estimate) < 0.022]
     delays.sort(kind='mergesort')
     left, right = fuzzy_mode_idx(delays, threshold)
     score = right - left + 1
