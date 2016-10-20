@@ -102,8 +102,8 @@ def compatibility(master, candidate, threshold=None):
     if threshold is None:
         threshold = 0.022
 
-    master = np.array(master)
-    candidate = np.array(candidate)
+    master = np.array(master, dtype=np.float32)
+    candidate = np.array(candidate, dtype=np.float32)
     diff = master - candidate[:, np.newaxis]
     delays = np.ravel(diff).copy()
     delays.sort(kind='mergesort')
