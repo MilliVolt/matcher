@@ -106,7 +106,7 @@ def compatibility(master, candidate, threshold=None):
     candidate = np.array(candidate)
     diff = master - candidate[:, np.newaxis]
     delays = np.ravel(diff).copy()
-    delays.sort()
+    delays.sort(kind='mergesort')
     left, right = fuzzy_mode_idx(delays, threshold)
     score = right - left + 1
     scaled = score / master.size
