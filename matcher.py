@@ -81,13 +81,13 @@ def get_seek_values(master, master_offset, delay):
 
 
 @numba.njit()
-def fuzzy_mode_idx(arr, argsort_idx, threshold):
+def fuzzy_mode_idx(arr, threshold):
     result = (0, 0)
     longest = 0
     i = j = 0
-    end = len(argsort_idx)
+    end = len(arr)
     while i < end:
-        if j < end and arr[argsort_idx[j]] - arr[argsort_idx[i]] <= threshold:
+        if j < end and arr[j] - arr[i] <= threshold:
             current_distance = j - i
             if current_distance > longest:
                 longest = current_distance
@@ -105,14 +105,17 @@ def compatibility(master, candidate, threshold=None):
     master = np.array(master)
     candidate = np.array(candidate)
     diff = master - candidate[:, np.newaxis]
-    delays = np.ravel(diff)
-    sorted_delays_idx = delays.argsort()
-    left, right = fuzzy_mode_idx(delays, sorted_delays_idx, threshold)
+    delays = np.ravel(diff).copy()
+    delays.sort()
+    left, right = fuzzy_mode_idx(delays, threshold)
     score = right - left + 1
     scaled = score / master.size
-    earliest = sorted_delays_idx[left:right].min()
-    delay = delays[earliest]
-    master_offset, cand_offset = divmod(earliest, master.size)
+    small = delays[left]
+    big = delays[right]
+    hits = np.where(np.logical_and(small <= diff, diff <= big))
+    master_offset = hits[1][0]
+    cand_offset = hits[0][0]
+    delay = diff[cand_offset, master_offset]
     mast_seek, cand_seek = get_seek_values(master, master_offset, delay)
     return Match(scaled, score, delay, mast_seek, cand_seek)
 
