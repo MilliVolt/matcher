@@ -32,8 +32,9 @@ class IndexHandler(BaseHandler):
             .select_entity_from(
                 select([subq])
                 .select_from(models.Video.__table__.join(subq, true()))
-                .limit(self.get_argument('n', 10))
             )
+            .order_by(models.AudioSwap.scaled_score.desc())
+            .limit(self.get_argument('n', 10))
         )
         self.write(''.join('''
             {}<br><a href="/watch?v={}">{}</a><br>{}<br>
