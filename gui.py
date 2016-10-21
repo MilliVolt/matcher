@@ -2,7 +2,9 @@
 """TFT gui."""
 import pafy
 
+from sqlalchemy import select, true
 from sqlalchemy.orm import sessionmaker
+
 import tornado.ioloop
 import tornado.web
 from tornado.web import url
@@ -17,13 +19,21 @@ class BaseHandler(tornado.web.RequestHandler):
 
 class IndexHandler(BaseHandler):
     def get(self):
+        subq = (
+            select([models.AudioSwap])
+            .where(models.AudioSwap.from_id == models.Video.id)
+            .order_by(models.AudioSwap.scaled_score.desc())
+            .limit(1)
+            .lateral()
+        )
         best_results = (
             self.session
             .query(models.AudioSwap)
-            .filter(models.AudioSwap.score > 50)
-            .group_by(models.AudioSwap.from_id, models.AudioSwap.id)
-            .order_by(models.AudioSwap.scaled_score.desc())
-            .limit(self.get_argument('n', 10))
+            .select_entity_from(
+                select([subq])
+                .select_from(models.Video.__table__.join(subq, true()))
+                .limit(self.get_argument('n', 10))
+            )
         )
         self.write(''.join('''
             {}<br><a href="/watch?v={}">{}</a><br>{}<br>
