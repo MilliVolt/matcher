@@ -33,6 +33,8 @@ class IndexHandler(BaseHandler):
                 select([subq])
                 .select_from(models.Video.__table__.join(subq, true()))
             )
+            .filter(models.AudioSwap.scaled_score <= self.get_argument('max', 0.7))
+            .filter(models.AudioSwap.scaled_score >= self.get_argument('min', 0.3))
             .order_by(models.AudioSwap.scaled_score.desc())
             .limit(self.get_argument('n', 10))
         )
