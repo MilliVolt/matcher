@@ -3,6 +3,7 @@
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from functools import partial
+import time
 
 from sqlalchemy.orm import sessionmaker
 
@@ -28,22 +29,29 @@ def record_match(unmatch):
         session.add(models.AudioSwap(
             from_audio=from_audio,
             to_audio=to,
-            score=compat.score,
-            scaled_score=compat.scaled_score,
-            from_seek=compat.master_seek,
-            to_seek=compat.candidate_seek,
+            score=compat[0] or 1,
+            scaled_score=compat[1],
+            from_seek=compat[3],
+            to_seek=compat[4],
         ))
 
 
 async def make_matches(loop):
     """Process unmatched videos and wait a minute if there are none."""
     spawn = partial(loop.run_in_executor, None, record_match)
+    prev = time.time()
     while True:
         unmatched = models.get_unmatched(session)
         if not unmatched.rowcount:
+            print('sleeping for 60 seconds')
             await asyncio.sleep(60)
             continue
+        print('processing {} unmatches...'.format(unmatched.rowcount), end='')
         await asyncio.wait([spawn(unmatch) for unmatch in unmatched])
+        new_time = time.time()
+        print(' {:.3f} seconds, {:.6f} seconds/match'.format(
+            new_time - prev, (new_time - prev)/unmatched.rowcount))
+        prev = new_time
 
 
 def main():

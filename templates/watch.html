@@ -9,6 +9,21 @@
   <audio id="audio" preload="auto" autobuffer="true" controls>
     <source src="{% raw audio_url %}">
   </audio>
+  <br>
+  <a href="https://youtube.com/watch?v={% raw video_url_id %}&t={{ int(round(float(video_seek))) }}">Video source</a>
+  <br>
+  Video: "{% raw backups[0].from_audio.video_metadata['title'] %}"
+  <br>
+  <a href="https://youtube.com/watch?v={% raw audio_url_id %}&t={{ int(round(float(audio_seek))) }}">Audio source</a>
+  <br>
+  Audio: "{% raw backups[0].to_audio.video_metadata['title'] %}"
+  <p>Alternative audios:</p>
+  {% for i, backup in enumerate(backups) %}
+    <a href="/watch?v={% raw video_url_id %}&a={{ backup.to_audio.url_id}}&vseek={{ backup.from_seek }}&aseek={{ backup.to_seek}}">{{ i }} backup</a><br>
+    sscore: {{ backup.scaled_score }}<br>
+    ascore: {{ backup.score }}</br>
+    Audio from "{% raw backup.to_audio.video_metadata['title'] %}"<br><br>
+  {% end %}
   <script>
     (function () {
       var video_seek = parseFloat('{% raw video_seek %}');

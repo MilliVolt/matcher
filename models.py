@@ -71,7 +71,6 @@ class Video(Base):
 
     __table_args__ = (
         sa.UniqueConstraint('id', 'duration'),
-        sa.Index('beat_cap', sa.text('array_length(audio_beat_times, 1)')),
     )
 
 
@@ -96,10 +95,6 @@ class AudioSwap(Base):
     )
     scaled_score = sa.Column(
         pg.NUMERIC,
-        sa.CheckConstraint(
-            '(scaled_score > 0) AND (scaled_score <= 1)',
-            name='audioswap_scaled_score_between_0_and_1',
-        ),
         nullable=False,
     )
     from_seek = sa.Column(
@@ -134,6 +129,7 @@ class AudioSwap(Base):
         ),
         sa.CheckConstraint('from_id != to_id', name='audioswap_diff_videos'),
         sa.UniqueConstraint('from_id', 'to_id'),
+        sa.Index('best_swap_index', from_id, scaled_score.desc()),
     )
 
 
@@ -179,20 +175,20 @@ def get_best_matches(
     )
 
 
-def get_unmatched(session, *, limit=10000):
+def get_unmatched(session, *, limit=2000):
+    # Would be good to use TABLESAMPLE here... postgres >= 9.5
     sql = sa.text("""
-        with results as (
-            select from_audio.id as from_id, to_audio.id as to_id
-            from tft.video as from_audio join tft.video as to_audio
-            on from_audio.id != to_audio.id 
-            and array_length(from_audio.audio_beat_times, 1) < 500
-            and array_length(to_audio.audio_beat_times, 1) < 500
-            and not exists(
-                select 1 from tft.audioswap where
-                tft.audioswap.from_id = from_audio.id and
-                tft.audioswap.to_id = to_audio.id
-            )
-        ) select from_id, to_id from results offset (
-            select floor(random() * count(*)) from results
-        ) limit :limit;""")
+        select x.id as from_id, y.id as to_id
+        from (select id from tft.video) x
+        join (select id from tft.video) y
+        on x.id != y.id
+        and not exists (
+            select 1 from tft.audioswap
+            where tft.audioswap.from_id = x.id
+            and tft.audioswap.to_id = y.id
+        )
+        and y.id in (
+            select id from tft.video order by random() limit 10
+        )
+        limit :limit;""")
     return session.bind.execute(sql, limit=limit)
