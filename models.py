@@ -73,7 +73,20 @@ class Video(Base):
         sa.UniqueConstraint('id', 'duration'),
     )
 
+class Tag(Base):
+    __tablename__ = 'tags'
+    id = sa.Column(
+        pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
+    tag = sa.Column(pg.TEXT, unique=True, nullable=False, index=True)
 
+
+class VideoTag(Base):
+    __tablename__ = 'videotags'
+    id = sa.Column( 
+            pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
+    video_id = relationship('Video', unique=False, foreign_keys=id)
+    tag_id = relationship('Tag', unique=False, foreign_keys=id)
+        
 class AudioSwap(Base):
     __tablename__ = 'audioswap'
     id = sa.Column(
