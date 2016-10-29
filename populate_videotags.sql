@@ -1,14 +1,25 @@
 do $$
-    declare 
-        vid uuid;
-        tid uuid;
-        vtag text;
-    begin
-       INSERT into tft.videotags (video_id) values (vid, tid)
-       --join tft.tags on unnest(tft.video.tags) = tft.tags.tag;
-       -- from tft.video join tft.tags on unnest(tft.video.tags) = tft.tags.tag;
-       from (select id as vid, unnest(tags) as vtag from tft.video) join 
-            (select id as tid, tag)
-       on  vtag = tag
-    end;
+declare
+begin
+    create table temp (
+        vid uuid,
+        vtag text);
+
+    insert into temp
+    select 
+        id as vid, 
+        unnest(tags) as vtag 
+    from tft.video; 
+
+    insert into tft.videotags (
+        select uuid_generate_v4() as id,
+            vid as video_id,
+            id as tag_id
+        from temp
+        left join
+            tft.tags
+        on (temp.vtag = tft.tags.tag)
+    );
+    drop table temp;
+end;
 $$
