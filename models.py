@@ -84,8 +84,8 @@ class VideoTag(Base):
     __tablename__ = 'videotags'
     id = sa.Column( 
             pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
-    video_id = relationship('Video', unique=False, foreign_keys=id)
-    tag_id = relationship('Tag', unique=False, foreign_keys=id)
+    video_id = sa.Column('video_id', pg.UUID, sa.ForeignKey('video.id'))
+    tag_id = sa.Column('tag_id', pg.UUID, sa.ForeignKey('tags.id'))
         
 class AudioSwap(Base):
     __tablename__ = 'audioswap'
