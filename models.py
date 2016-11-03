@@ -129,7 +129,8 @@ class AudioSwap(Base):
         ),
         sa.CheckConstraint('from_id != to_id', name='audioswap_diff_videos'),
         sa.UniqueConstraint('from_id', 'to_id'),
-        sa.Index('best_swap_index', from_id, scaled_score.desc()),
+        sa.Index('best_from_swap_index', from_id, scaled_score.desc()),
+        sa.Index('best_to_swap_index', to_id, scaled_score.desc()),
     )
 
 
