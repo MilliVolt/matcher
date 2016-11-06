@@ -29,13 +29,27 @@ def create_engine():
     return sa.create_engine(connection_string)
 
 
+videotag = sa.Table(
+    'videotag', metadata,
+    sa.Column(
+        'videotag_video_id', pg.UUID, sa.ForeignKey('video.video_id'),
+        nullable=False,
+    ),
+    sa.Column(
+        'videotag_tag_id', pg.UUID, sa.ForeignKey('tag.tag_id'),
+        nullable=False,
+    ),
+    sa.UniqueConstraint('videotag_video_id', 'videotag_tag_id'),
+)
+
+
 class Video(Base):
     __tablename__ = 'video'
-    id = sa.Column(
+    video_id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
     url_id = sa.Column(pg.TEXT, unique=True, nullable=False)
+    title = sa.Column(pg.TEXT, nullable=False)
     duration = sa.Column(pg.NUMERIC, nullable=False)
-    tags = sa.Column(pg.ARRAY(pg.TEXT), nullable=False)
     audio_beat_times = sa.Column(
         pg.ARRAY(pg.NUMERIC),
         sa.CheckConstraint(
@@ -52,6 +66,8 @@ class Video(Base):
         ),
         nullable=False,
     )
+    tags = relationship(
+        'Tag', secondary=videotag, back_populates='videos', lazy='dynamic')
 
     @validates('audio_beat_times')
     def validate_audio_beat_times(self, key, abt):
@@ -70,13 +86,26 @@ class Video(Base):
     )
 
     __table_args__ = (
-        sa.UniqueConstraint('id', 'duration'),
+        sa.UniqueConstraint('video_id', 'duration'),
+    )
+
+
+class Tag(Base):
+    __tablename__ = 'tag'
+    tag_id = sa.Column(
+        pg.UUID, primary_key=True, server_default=func.uuid_generate_v4())
+    tag_name = sa.Column(pg.TEXT, nullable=False)
+    videos = relationship(
+        'Video', secondary=videotag, back_populates='tags', lazy='dynamic')
+
+    __table_args__ = (
+        sa.Index('lowercase_tag_name', func.lower(tag_name), unique=True),
     )
 
 
 class AudioSwap(Base):
     __tablename__ = 'audioswap'
-    id = sa.Column(
+    audioswap_id = sa.Column(
         pg.UUID, primary_key=True, server_default=func.uuid_generate_v4()
     )
 
@@ -117,13 +146,13 @@ class AudioSwap(Base):
     __table_args__ = (
         sa.ForeignKeyConstraint(
             ('from_id', 'from_duration'),
-            ('video.id', 'video.duration'),
+            ('video.video_id', 'video.duration'),
             onupdate='CASCADE',
             ondelete='CASCADE',
         ),
         sa.ForeignKeyConstraint(
             ('to_id', 'to_duration'),
-            ('video.id', 'video.duration'),
+            ('video.video_id', 'video.duration'),
             onupdate='CASCADE',
             ondelete='CASCADE',
         ),
@@ -164,32 +193,31 @@ def get_best_matches(
         ('scaled', 'absolute'),
         ((AudioSwap.scaled_score, AudioSwap.score),)
     )
-    if tags is None:
-        tags = []
-
-    return (
+    query = (
         session.query(AudioSwap)
-        .join(Video, joiner == Video.id)
-        .filter(filterer == video.id)
-        .filter(Video.tags.contains(tags))
-        .order_by(orderer.desc())
+        .join(Video, joiner == Video.video_id)
+        .filter(filterer == video.video_id)
     )
+    if tags is not None:
+        query = query.filter(video.tags.any(tag.tag_name.in_(tags)))
+
+    return query.order_by(orderer.desc())
 
 
 def get_unmatched(session, *, limit=2000):
     # Would be good to use TABLESAMPLE here... postgres >= 9.5
     sql = sa.text("""
-        select x.id as from_id, y.id as to_id
-        from (select id from tft.video) x
-        join (select id from tft.video) y
-        on x.id != y.id
+        select x.video_id as from_id, y.video_id as to_id
+        from (select video_id from tft.video) x
+        join (select video_id from tft.video) y
+        on x.video_id != y.video_id
         and not exists (
             select 1 from tft.audioswap
-            where tft.audioswap.from_id = x.id
-            and tft.audioswap.to_id = y.id
+            where tft.audioswap.from_id = x.video_id
+            and tft.audioswap.to_id = y.video_id
         )
-        and y.id in (
-            select id from tft.video order by random() limit 10
+        and y.video_id in (
+            select video_id from tft.video order by random() limit 10
         )
         limit :limit;""")
     return session.bind.execute(sql, limit=limit)
