@@ -21,7 +21,7 @@ class IndexHandler(BaseHandler):
     def get(self):
         subq = (
             select([models.AudioSwap])
-            .where(models.AudioSwap.from_id == models.Video.id)
+            .where(models.AudioSwap.from_id == models.Video.video_id)
             .order_by(models.AudioSwap.scaled_score.desc())
             .limit(1)
             .lateral()
@@ -88,9 +88,9 @@ class MainHandler(BaseHandler):
             audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
             video_url_id=url_id,
             audio_url_id=audio_url_id or url_id,
-            backups = [] if best_matches_count <= 1 else best_matches[:10],
-            video_seek=video_seek or self.get_argument('vseek', '0'),
-            audio_seek=audio_seek or self.get_argument('aseek', '0'),
+            backups = [] if not best_matches_count else best_matches[:10],
+            video_seek=self.get_argument('vseek', video_seek),
+            audio_seek=self.get_argument('aseek', audio_seek),
         )
 
 

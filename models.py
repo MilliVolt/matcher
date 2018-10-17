@@ -76,7 +76,7 @@ class Video(Base):
         return abt
 
     video_metadata = sa.Column(
-        pg.json.JSONB,
+        pg.JSONB,
         sa.CheckConstraint(
             "video_metadata @> '{}'",
             name='video_metadata_valid_json_check',
@@ -184,7 +184,7 @@ def get_best_matches(
         from_or_to,
         ('from', 'to'),
         (
-            (AudioSwap.from_id, AudioSwap.to_id),
+            (AudioSwap.to_id, AudioSwap.from_id),
             (AudioSwap.from_id, AudioSwap.to_id),
         )
     )
@@ -198,7 +198,7 @@ def get_best_matches(
         .join(Video, joiner == Video.video_id)
         .filter(filterer == video.video_id)
     )
-    if tags is not None:
+    if tags:
         query = query.filter(video.tags.any(tag.tag_name.in_(tags)))
 
     return query.order_by(orderer.desc())
