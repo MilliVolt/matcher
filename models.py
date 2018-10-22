@@ -197,11 +197,12 @@ def get_best_matches(
         session.query(AudioSwap)
         .join(Video, joiner == Video.video_id)
         .filter(filterer == video.video_id)
+        .filter(AudioSwap.scaled_score >= 0.3)
     )
     if tags:
         query = query.filter(video.tags.any(tag.tag_name.in_(tags)))
 
-    return query.order_by(orderer.desc())
+    return query.order_by(orderer.desc()).limit(40)
 
 
 def get_unmatched(session, *, limit=2000):

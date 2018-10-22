@@ -36,7 +36,7 @@ class IndexHandler(BaseHandler):
             .filter(models.AudioSwap.scaled_score <= self.get_argument('max', 0.7))
             .filter(models.AudioSwap.scaled_score >= self.get_argument('min', 0.3))
             .order_by(models.AudioSwap.scaled_score.desc())
-            .limit(self.get_argument('n', 10))
+            .limit(self.get_argument('n', 100))
         )
         self.write(''.join('''
             {}<br><a href="/watch?v={}">{}</a><br>{}<br>
@@ -88,11 +88,37 @@ class MainHandler(BaseHandler):
             audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
             video_url_id=url_id,
             audio_url_id=audio_url_id or url_id,
-            backups = [] if not best_matches_count else best_matches[:10],
+            backups = [] if not best_matches_count else best_matches,
             video_seek=self.get_argument('vseek', video_seek),
             audio_seek=self.get_argument('aseek', audio_seek),
         )
 
+
+class ListHandler(BaseHandler):
+    def get(self):
+        # Maybe this should be the index view.
+        results = (
+            self.session
+            .query(models.AudioSwap)
+            .filter(models.AudioSwap.scaled_score <= self.get_argument('max', 0.7))
+            .filter(models.AudioSwap.scaled_score >= self.get_argument('min', 0.3))
+            .order_by(models.AudioSwap.scaled_score.desc())
+            .limit(self.get_argument('n', 100))
+        )
+        self.write(''.join('''
+            {}<br><a href="/watch?v={}&a={}&vseek={}&aseek={}">{}</a><br>{}<br>
+            sscore: {}<br>
+            ascore: {}<br>
+            <br>
+        '''.format(
+            i,
+            match.from_audio.url_id, match.to_audio.url_id,
+            match.from_seek, match.to_seek,
+            match.from_audio.video_metadata['title'],
+            match.to_audio.video_metadata['title'],
+            match.scaled_score, match.score
+        ) for i, match in enumerate(results)))
+        self.finish()
 
 class Application(tornado.web.Application):
     def __init__(self):
@@ -103,6 +129,7 @@ class Application(tornado.web.Application):
         urls = [
             url(r'/', IndexHandler),
             url(r'/watch', MainHandler),
+            url(r'/list', ListHandler),
         ]
         super().__init__(urls, **settings)
         engine = models.create_engine()
