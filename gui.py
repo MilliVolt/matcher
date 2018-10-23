@@ -85,6 +85,14 @@ class MainHandler(BaseHandler):
         self.render(
             'watch.html',
             video_url=pafy.new(url_id).getbestvideo().url,
+            audio_title=(
+                self.session
+                .query(models.Video)
+                .filter_by(url_id=audio_url_id or url_id)
+                .limit(1)
+                .one()
+                .video_metadata['title']
+            ),
             audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
             video_url_id=url_id,
             audio_url_id=audio_url_id or url_id,
@@ -102,6 +110,7 @@ class ListHandler(BaseHandler):
             .query(models.AudioSwap)
             .filter(models.AudioSwap.scaled_score <= self.get_argument('max', 0.7))
             .filter(models.AudioSwap.scaled_score >= self.get_argument('min', 0.3))
+            .filter(models.AudioSwap.score >= 100)
             .order_by(models.AudioSwap.scaled_score.desc())
             .limit(self.get_argument('n', 100))
         )

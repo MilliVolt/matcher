@@ -16,7 +16,7 @@
   <br>
   <a href="https://youtube.com/watch?v={% raw audio_url_id %}&t={{ int(round(float(audio_seek))) }}">Audio source</a>
   <br>
-  Audio: "{% raw backups[0].to_audio.video_metadata['title'] %}"
+  Audio: "{% raw audio_title %}"
   <p>Alternative audios:</p>
   {% for i, backup in enumerate(backups) %}
     <a href="/watch?v={% raw video_url_id %}&a={{ backup.to_audio.url_id}}&vseek={{ backup.from_seek }}&aseek={{ backup.to_seek}}">{{ i }} backup</a><br>
