@@ -82,17 +82,12 @@ class MainHandler(BaseHandler):
         if spec_audio_url_id:
             audio_url_id = spec_audio_url_id
             audio_url = pafy.new(audio_url_id).getbestaudio().url
+        video_obj = pafy.new(url_id)
         self.render(
             'watch.html',
-            video_url=pafy.new(url_id).getbestvideo().url,
-            audio_title=(
-                self.session
-                .query(models.Video)
-                .filter_by(url_id=audio_url_id or url_id)
-                .limit(1)
-                .one()
-                .video_metadata['title']
-            ),
+            video_title=video_obj.title,
+            video_url=video_obj.getbestvideo().url,
+            audio_title=pafy.new(audio_url_id or url_id).title,
             audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
             video_url_id=url_id,
             audio_url_id=audio_url_id or url_id,
