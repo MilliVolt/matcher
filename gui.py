@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """TFT gui."""
 import pafy
-
 from sqlalchemy import select, true
 from sqlalchemy.orm import sessionmaker
+from youtube_dl.utils import YoutubeDLError
 
 import tornado.ioloop
 import tornado.web
-from tornado.web import url
+from tornado.web import Finish, url
 
 import models
 
@@ -52,8 +52,18 @@ class IndexHandler(BaseHandler):
         self.finish()
 
 
-
 class MainHandler(BaseHandler):
+    def crappy_pafy(self, url_id):
+        try:
+            return pafy.new(url_id)
+        except (OSError, YoutubeDLError):
+            url = 'https://www.youtube.com/watch?v={}'.format(url_id)
+            self.write(
+                'There is a problem with video'
+                ' <a href="{0}">{0}</a>'.format(url)
+            )
+            raise Finish()
+
     def get(self):
         url_id = self.get_argument('v')
         video = models.get_video(self.session, url_id=self.get_argument('v'))
@@ -70,25 +80,25 @@ class MainHandler(BaseHandler):
                 tags=tags)
             best_matches_count = best_matches.count()
         audio_url = None
-        video_seek = None
-        audio_seek = None
+        video_seek = '0'
+        audio_seek = '0'
         audio_url_id = None
         if best_matches_count:
             best_match = best_matches[0]
             video_seek = best_match.from_seek
             audio_seek = best_match.to_seek
             audio_url_id = best_match.to_audio.url_id
-            audio_url = pafy.new(audio_url_id).getbestaudio().url
+            audio_url = self.crappy_pafy(audio_url_id).getbestaudio().url
         if spec_audio_url_id:
             audio_url_id = spec_audio_url_id
-            audio_url = pafy.new(audio_url_id).getbestaudio().url
-        video_obj = pafy.new(url_id)
+            audio_url = self.crappy_pafy(audio_url_id).getbestaudio().url
+        video_obj = self.crappy_pafy(url_id)
         self.render(
             'watch.html',
             video_title=video_obj.title,
             video_url=video_obj.getbestvideo().url,
-            audio_title=pafy.new(audio_url_id or url_id).title,
-            audio_url=audio_url or pafy.new(url_id).getbestaudio().url,
+            audio_title=self.crappy_pafy(audio_url_id or url_id).title,
+            audio_url=audio_url or self.crappy_pafy(url_id).getbestaudio().url,
             video_url_id=url_id,
             audio_url_id=audio_url_id or url_id,
             backups = [] if not best_matches_count else best_matches,
